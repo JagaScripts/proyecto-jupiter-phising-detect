@@ -1,0 +1,40 @@
+services:
+  db:
+    image: postgres:18
+    container_name: dominios-db
+    environment:
+      - POSTGRES_DB=dominios
+      - POSTGRES_USER=dominios_user
+      - POSTGRES_PASSWORD=dominios_pass
+    volumes:
+      - dominios_datos:/var/lib/postgressql/datos
+    networks:
+      - dominios_net
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U dominios_user -d dominios"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+    
+  app:
+    build: 
+      context: ./app
+      dockerfile: Dockerfile
+    container_name: dominios-api
+    env_file:
+      - ./app/.env.compose
+    environment:
+      - DATABASE_URL=postgresql+psycopg2://dominios_user:dominios_pass@dominios-db:5432/dominios
+    depends_on:
+      - db
+    ports:
+      - "8080:8080"
+    networks:
+      - dominios_net
+
+volumes:
+  dominios_datos: {}
+
+networks:
+  dominios_net:
+    driver: bridge

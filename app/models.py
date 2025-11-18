@@ -1,6 +1,8 @@
 import enum
 from sqlalchemy.orm import DeclarativeBase
-from sqlalchemy import String, Column, Enum, BOOLEAN, JSON, DATETIME, Integer, event
+#from sqlalchemy import String, Column, Enum, BOOLEAN, JSON, DATETIME, Integer, event
+from sqlalchemy import String, Column, Enum, Boolean, JSON, DateTime, Integer, event
+from sqlalchemy.dialects.postgresql import JSONB
 from datetime import datetime, timezone
 
 # Declaramos una clase base
@@ -23,12 +25,14 @@ class Dominio(DecBase):
     nombre = Column(String(50), primary_key=True, nullable=False)
     ip_actual = Column(String(20))
     estado_dominio = Column(Enum(EstadoDominio), default=EstadoDominio.DESCONOCIDO)
-    tiene_mx = Column(BOOLEAN, default=False)
-    etiquetas = Column(JSON, default=list) # Este campo seran listas y por eso se declaran de tipo JSON
-    fuentes_reputacion = Column(JSON, default=list) # Este campo seran listas de diccionarios también se declaran de tipo JSON
+    tiene_mx = Column(Boolean, default=False)
+    #etiquetas = Column(JSON, default=list) # Este campo seran listas y por eso se declaran de tipo JSON
+    etiquetas = Column(JSONB, default=list) # Este campo seran listas y por eso se declaran de tipo JSONB
+    #fuentes_reputacion = Column(JSON, default=list) # Este campo seran listas de diccionarios también se declaran de tipo JSON
+    fuentes_reputacion = Column(JSONB, default=list) # Este campo seran listas de diccionarios también se declaran de tipo JSONB
     score = Column(Integer, default=0)
-    creado_el = Column(DATETIME)
-    modificado_el = Column(DATETIME)
+    creado_el = Column(DateTime(timezone=True))
+    modificado_el = Column(DateTime(timezone=True))
 
 # Debido a que en ocasiones la fecha de registro es anterior a la fecha de creación y es un problema de 
 # sqlalchemy, se van a usar eventos para sincronizar las fechas

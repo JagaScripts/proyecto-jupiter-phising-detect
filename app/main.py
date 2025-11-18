@@ -2,9 +2,12 @@ import logging
 import asyncio
 import schemas, crud
 from fastapi import FastAPI, HTTPException, Depends
+from contextlib import asynccontextmanager
 from database import SessionLocal, engine
 from models import DecBase, EstadoDominio
 from fastapi.concurrency import run_in_threadpool
+from sqlalchemy.exc import OperationalError
+from sqlalchemy import text
 from servicios_ext import tiene_mx, obtiene_ip, fuentes_reputacion
 
 # Iniciamos el servicio de logs
@@ -30,15 +33,44 @@ warning_file_handler.setLevel(logging.WARNING)
 warning_file_handler.setFormatter(console_format)
 logger.addHandler(warning_file_handler)
 
-# Se inicia FASTAPI
-app = FastAPI(title="Dominios")
-logger.info("FastAPI inicializada")
+# Espera a que el servidor PostgreSQL esté accesible antes de continuar
+async def _wait_for_db(max_attempts=60, delay=1.0):
+    for _ in range(max_attempts):
+        try:
+            with engine.connect() as conn:
+                conn.execute(text("SELECT 1"))
+            return
+        except OperationalError:
+            await asyncio.sleep(delay)
+    raise RuntimeError("PostgreSQL no está listo tras esperar lo suficiente")
 
-# Se crea la base de datos
-DecBase.metadata.create_all(bind=engine)
-logger.debug("Se crea la Base de Datos si no existe")
+async def _create_schema_with_retry(max_attempts=30, delay=1.0):
+    for _ in range(max_attempts):
+        try:
+            DecBase.metadata.create_all(bind=engine)
+            # Verifica nuevamente que la conexión sigue siendo válida después de crear las tablas
+            with engine.connect() as conn:
+                conn.execute(text("SELECT 1"))
+            return
+        except OperationalError:
+            await asyncio.sleep(delay)
+    raise RuntimeError("No se pudo crear/esquema porque la BD no aceptó conexiones a tiempo")
 
-# Funcion que inicia la sesiona a la base de datos creada en el archivo database.py
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    logger.info("Esperando a que PostgreSQL esté listo...")
+    await _wait_for_db()
+    logger.info("PostgreSQL disponible, creando tablas si no existen...")
+    await _create_schema_with_retry()
+    logger.info("Tablas creadas correctamente.")
+    yield
+    logger.info("Cerrando conexiones con la base de datos...")
+    engine.dispose()
+
+app = FastAPI(title="Dominios", lifespan=lifespan)
+logger.info("FastAPI inicializada correctamente")
+
+# Funcion que inicia la sesion a la base de datos creada en el archivo database.py
 def get_db():
     db = SessionLocal()
     try:
