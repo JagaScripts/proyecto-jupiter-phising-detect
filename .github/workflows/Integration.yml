@@ -21,4 +21,4 @@ jobs:
           pip install --no-cache-dir -r app/requirements.txt
       - name: Run integration tests
         run: |
-          python -m pytest test_api_dominios.py --rootdir=app
+          python -m pytest app/test_api_dominios.py --rootdir=app
