@@ -1,6 +1,6 @@
 import requests
 
-BASE_URL_API = "http://127.0.0.1:8000"
+BASE_URL_API = "http://127.0.0.1:8080"
 
 # CREA DOMINIO 1
 # Este dominio tiene score de reputacion en VT
