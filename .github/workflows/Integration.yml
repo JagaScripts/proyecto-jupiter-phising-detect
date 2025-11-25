@@ -21,7 +21,8 @@ jobs:
           pip install --no-cache-dir -r app/requirements.txt
       - name: Server up
         run: |
-          uvicorn app.main:app --host 0.0.0.0 --port 8080
+          cd app
+          uvicorn main:app --host 0.0.0.0 --port 8080
       - name: Run integration tests
         run: |
           python -m pytest app/test_api_dominios.py --rootdir=app
