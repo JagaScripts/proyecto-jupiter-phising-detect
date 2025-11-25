@@ -26,4 +26,4 @@ jobs:
       - name: Run integration tests
         run: |
           sleep 10
-          python -m pytest app/test_api_dominios.py --rootdir=app
+          python -m pytest app/test_api_dominios.py
