@@ -1,240 +1,196 @@
 import requests
 
+# URL base, configurada correctamente en el puerto 8080
 BASE_URL_API = "http://127.0.0.1:8080"
 
-# CREA DOMINIO 1
-# Este dominio tiene score de reputacion en VT
-print("\n" + "*"*30, "CREA DOMINIO 1", "*"*30)
-dominio = {
-    "nombre": "beritapb.com"
-}
-response = requests.post(f"{BASE_URL_API}/dominio/", json=dominio)
-# Imprimimos el código de respuesta. Este formato se va a aplicar a todas las peticiones 
-print("\nCódigo Respuesta Crea Dominio 1:", response.status_code)
-# Mosramos el contenido de la respuesta. Este formato se va a aplicar a todas las peticiones
-print("Contenido Respuesta:", response.json(), "\n\n")
-# Lanzamos excepción si el codigo no es 200 o 201.
-# El codigo 201 indica que se ha creado algo nuevo
-# Este formato se va a aplicar a todas las peticiones de tipo POST 
-assert response.status_code in [200, 201]
+# --- PRUEBAS DE CREACIÓN (POST) ---
 
-# CREA DOMINIO 2
-# Este dominio tiene score de reputacion en VT y creamos las etiquetas
-print("*"*30, "CREA DOMINIO 2", "*"*30)
-dominio = {
-    "nombre": "baliancer.com",
-    "etiquetas": ["malware", "c2"]
-}
-response = requests.post(f"{BASE_URL_API}/dominio/", json=dominio)
-print("\nCódigo Respuesta Crea Dominio 2:", response.status_code)
-print("Contenido Respuesta:", response.json(), "\n\n")
-assert response.status_code in [200, 201]
+def test_01_crea_dominio_1():
+    """Crea dominio 1: con score de reputación en VT."""
+    print("\n" + "*"*30, "CREA DOMINIO 1", "*"*30)
+    dominio = {"nombre": "beritapb.com"}
+    response = requests.post(f"{BASE_URL_API}/dominio/", json=dominio)
+    print("\nCódigo Respuesta Crea Dominio 1:", response.status_code)
+    print("Contenido Respuesta:", response.json(), "\n")
+    assert response.status_code in [200, 201]
 
-# CREA DOMINIO 3
-# Este dominio tiene score de reputacion en VT y creamos las etiquetas
-print("*"*30, "CREA DOMINIO 3", "*"*30)
-dominio = {
-    "nombre": "gato.com",
-    "etiquetas": ["phishing"]
-}
-response = requests.post(f"{BASE_URL_API}/dominio/", json=dominio)
-print("\nCódigo Respuesta Crea Dominio 3:", response.status_code)
-print("Contenido Respuesta:", response.json(), "\n\n")
-assert response.status_code in [200, 201]
+def test_02_crea_dominio_2_con_etiquetas():
+    """Crea dominio 2: con score en VT y etiquetas."""
+    print("*"*30, "CREA DOMINIO 2", "*"*30)
+    dominio = {"nombre": "baliancer.com", "etiquetas": ["malware", "c2"]}
+    response = requests.post(f"{BASE_URL_API}/dominio/", json=dominio)
+    print("\nCódigo Respuesta Crea Dominio 2:", response.status_code)
+    print("Contenido Respuesta:", response.json(), "\n")
+    assert response.status_code in [200, 201]
 
-# CREA DOMINIO 4
-# Este dominio no tiene score de reputacion en VT y creamos las etiquetas
-print("*"*30, "CREA DOMINIO 4", "*"*30)
-dominio = {
-    "nombre": "leon.com"
-}
-response = requests.post(f"{BASE_URL_API}/dominio/", json=dominio)
-print("\nCódigo Respuesta Crea Dominio 4:", response.status_code)
-print("Contenido Respuesta:", response.json(), "\n\n")
-assert response.status_code in [200, 201]
+def test_03_crea_dominio_3_sin_score():
+    """Crea dominio 3: sin score de reputación en VT."""
+    print("*"*30, "CREA DOMINIO 3", "*"*30)
+    dominio = {"nombre": "leon.com"}
+    response = requests.post(f"{BASE_URL_API}/dominio/", json=dominio)
+    print("\nCódigo Respuesta Crea Dominio 3:", response.status_code)
+    print("Contenido Respuesta:", response.json(), "\n")
+    assert response.status_code in [200, 201]
 
-# CREA DOMINIO QUE YA EXISTE
-# Este dominio no tiene score de reputacion en VT y creamos las etiquetas
-print("*"*30, "CREA DOMINIO EXISTENTE", "*"*30)
-dominio = {
-    "nombre": "leon.com"
-}
-response = requests.post(f"{BASE_URL_API}/dominio/", json=dominio)
-print("\nCódigo Respuesta Crea Dominio Existente:", response.status_code)
-print("Contenido Respuesta:", response.json(), "\n\n")
-assert response.status_code == 400
+def test_04_crea_dominio_existente_falla():
+    """Intenta crear un dominio que ya existe (espera 400)."""
+    print("*"*30, "CREA DOMINIO EXISTENTE", "*"*30)
+    dominio = {"nombre": "leon.com"}
+    response = requests.post(f"{BASE_URL_API}/dominio/", json=dominio)
+    print("\nCódigo Respuesta Crea Dominio Existente:", response.status_code)
+    print("Contenido Respuesta:", response.json(), "\n")
+    assert response.status_code == 400
 
-# OBTIENE UN DOMINIO
-print("*"*30, "OBTIENE UN DOMINIO", "*"*30)
-dominio = "baliancer.com"
-response = requests.get(f"{BASE_URL_API}/dominio/{dominio}")
-print("\nCódigo Respuesta Obtiente Dominio:", response.status_code)
-print("Contenido Respuesta:", response.json(), "\n\n")
-# Lanzamos excepción si el codigo no es 200.
-assert response.status_code == 200
+# --- PRUEBAS DE LECTURA (GET) ---
 
-# LISTA TODOS LOS DOMINIOS
-print("*"*30, "OBTIENE TODOS LOS DOMINIOS", "*"*30)
-response = requests.get(f"{BASE_URL_API}/dominios")
-print("\nCódigo Respuesta Lista Todos los Dominos:", response.status_code)
-print("Contenido Respuesta:", response.json(), "\n\n")
-# Lanzamos excepción si el codigo no es 200.
-assert response.status_code == 200
+def test_05_obtiene_un_dominio():
+    """Obtiene un dominio específico (baliancer.com)."""
+    print("*"*30, "OBTIENE UN DOMINIO", "*"*30)
+    dominio = "baliancer.com"
+    response = requests.get(f"{BASE_URL_API}/dominio/{dominio}")
+    print("\nCódigo Respuesta Obtiene Dominio:", response.status_code)
+    print("Contenido Respuesta:", response.json(), "\n")
+    assert response.status_code == 200
 
-# ACTUALIZA DOMINIO 1
-print("*"*30, "ACTUALIZA DOMINIO 1", "*"*30)
-dominio = "baliancer.com"
-datos = {
-    "estado_dominio": "Malicioso",
-    "etiquetas": ["phishing"]
-}
-response = requests.patch(f"{BASE_URL_API}/dominio/{dominio}", json=datos)
-print("\nRespuesta Actualiza Dominio 1:", response.status_code)
-print("Contenido Respuesta:", response.json(), "\n\n")
-# Lanzamos excepción si el codigo no es 200.
-assert response.status_code == 200
+def test_06_lista_todos_los_dominios():
+    """Lista todos los dominios."""
+    print("*"*30, "OBTIENE TODOS LOS DOMINIOS", "*"*30)
+    response = requests.get(f"{BASE_URL_API}/dominios")
+    print("\nCódigo Respuesta Lista Todos los Dominios:", response.status_code)
+    print("Contenido Respuesta:", response.json(), "\n")
+    assert response.status_code == 200
 
-# ACTUALIZA DOMINIO 2
-print("*"*30, "ACTUALIZA DOMINIO 2", "*"*30)
-dominio = "gato.com"
-datos = {
-    "estado_dominio": "Malicioso",
-    "fuentes_reputacion": [{"manual": 80}]
-}
-response = requests.patch(f"{BASE_URL_API}/dominio/{dominio}", json=datos)
-print("\nRespuesta Actualiza Dominio 2:", response.status_code)
-print("Contenido Respuesta:", response.json(), "\n\n")
-# Lanzamos excepción si el codigo no es 200.
-assert response.status_code == 200
+# --- PRUEBAS DE ACTUALIZACIÓN (PATCH) ---
 
-# ACTUALIZA DOMINIO QUE NO EXISTE
-print("*"*30, "ACTUALIZA DOMINIO QUE NO EXISTE", "*"*30)
-dominio = "gato1.com"
-datos = {
-    "estado_dominio": "Malicioso",
-    "fuentes_reputacion": [{"manual": 80}]
-}
-response = requests.patch(f"{BASE_URL_API}/dominio/{dominio}", json=datos)
-print("\nRespuesta Actualiza Dominio que no existe:", response.status_code)
-print("Contenido Respuesta:", response.json(), "\n\n")
-# Lanzamos excepción si el codigo no distinto de 200. Esto 
-# implicaría que ha actualizado el dominio
-assert response.status_code != 200
+def test_07_actualiza_dominio_1_etiquetas():
+    """Actualiza dominio 1 con estado y etiquetas."""
+    print("*"*30, "ACTUALIZA DOMINIO 1", "*"*30)
+    dominio = "baliancer.com"
+    datos = {"estado_dominio": "Malicioso", "etiquetas": ["phishing"]}
+    response = requests.patch(f"{BASE_URL_API}/dominio/{dominio}", json=datos)
+    print("\nRespuesta Actualiza Dominio 1:", response.status_code)
+    print("Contenido Respuesta:", response.json(), "\n")
+    assert response.status_code == 200
 
-# ACTUALIZA CON ESTADO DOMINIO ERRONEO
-print("*"*30, "ACTUALIZA CON ESTADO DOMINIO ERRONEO", "*"*30)
-dominio = "gato.com"
-datos = {
-    "estado_dominio": "Penoso",
-    "fuentes_reputacion": [{"manual": 80}]
-}
-response = requests.patch(f"{BASE_URL_API}/dominio/{dominio}", json=datos)
-print("\nRespuesta Actualiza con estado dominio erroneo:", response.status_code)
-print("Contenido Respuesta:", response.json(), "\n\n")
-# Lanzamos excepción si el codigo no distinto de 200. Esto 
-# implicaría que ha actualizado el dominio
-assert response.status_code != 200
+def test_08_actualiza_dominio_2_fuentes():
+    """Actualiza dominio 2 con fuentes de reputación."""
+    print("*"*30, "ACTUALIZA DOMINIO 2", "*"*30)
+    dominio = "beritapb.com"
+    datos = {"estado_dominio": "Malicioso", "fuentes_reputacion": [{"manual": 80}]}
+    response = requests.patch(f"{BASE_URL_API}/dominio/{dominio}", json=datos)
+    print("\nRespuesta Actualiza Dominio 2:", response.status_code)
+    print("Contenido Respuesta:", response.json(), "\n")
+    assert response.status_code == 200
 
-# ACTUALIZA CON FORMATO DE REPUTACION ERRONEO
-print("*"*30, "ACTUALIZA CON FORMATO DE REPUTACION ERRONEO", "*"*30)
-dominio = "gato.com"
-datos = {
-    "fuentes_reputacion": [{"manual": "80"}]
-}
-response = requests.patch(f"{BASE_URL_API}/dominio/{dominio}", json=datos)
-print("\nRespuesta Actualiza con formato de reputacion erroneo:", response.status_code)
-print("Contenido Respuesta:", response.json(), "\n\n")
-# Lanzamos excepción si el codigo no distinto de 200. Esto 
-# implicaría que ha actualizado el dominio
-assert response.status_code != 200
+def test_09_actualiza_dominio_inexistente_falla():
+    """Intenta actualizar un dominio que no existe (espera que no sea 200)."""
+    print("*"*30, "ACTUALIZA DOMINIO QUE NO EXISTE", "*"*30)
+    dominio = "gato1.com"
+    datos = {"estado_dominio": "Malicioso"}
+    response = requests.patch(f"{BASE_URL_API}/dominio/{dominio}", json=datos)
+    print("\nRespuesta Actualiza Dominio que no existe:", response.status_code)
+    print("Contenido Respuesta:", response.json(), "\n")
+    assert response.status_code != 200
 
-# ACTUALIZA CON FORMATO DE ETIQUETAS ERRONEO
-print("*"*30, "ACTUALIZA CON FORMATO DE ETIQUETAS ERRONEO", "*"*30)
-dominio = "gato.com"
-datos = {
-    "etiquetas": "Suplantacion"
-}
-response = requests.patch(f"{BASE_URL_API}/dominio/{dominio}", json=datos)
-print("\nRespuesta Actualiza con formato de etiquetas erroneo:", response.status_code)
-print("Contenido Respuesta:", response.json(), "\n\n")
-# Lanzamos excepción si el codigo no distinto de 200. Esto 
-# implicaría que ha actualizado el dominio
-assert response.status_code != 200
+def test_10_actualiza_estado_dominio_erroneo_falla():
+    """Intenta actualizar con estado de dominio incorrecto (espera que no sea 200)."""
+    print("*"*30, "ACTUALIZA CON ESTADO DOMINIO ERRONEO", "*"*30)
+    dominio = "baliancer.com"
+    datos = {"estado_dominio": "Penoso"}
+    response = requests.patch(f"{BASE_URL_API}/dominio/{dominio}", json=datos)
+    print("\nRespuesta Actualiza con estado dominio erroneo:", response.status_code)
+    print("Contenido Respuesta:", response.json(), "\n")
+    assert response.status_code != 200
 
-# ELIMINA UN DOMINIO
-print("*"*30, "ELIMINA UN DOMINIO", "*"*30)
-dominio = {
-    "nombre": "leon.com"
-}
-response = requests.delete(f"{BASE_URL_API}/dominio/{dominio['nombre']}")
-print("\nRespuesta Elimina Dominio:", response.status_code)
-print("Contenido Respuesta:", response.json(), "\n\n")
-# Lanzamos excepción si el codigo no es 200.
-assert response.status_code == 200
+def test_11_actualiza_formato_reputacion_erroneo_falla():
+    """Intenta actualizar con formato de reputación incorrecto (espera que no sea 200)."""
+    print("*"*30, "ACTUALIZA CON FORMATO DE REPUTACION ERRONEO", "*"*30)
+    dominio = "baliancer.com"
+    datos = {"fuentes_reputacion": [{"manual": "80"}]} # Valor de score como string
+    response = requests.patch(f"{BASE_URL_API}/dominio/{dominio}", json=datos)
+    print("\nRespuesta Actualiza con formato de reputacion erroneo:", response.status_code)
+    print("Contenido Respuesta:", response.json(), "\n")
+    assert response.status_code != 200
 
-# ELIMINA UN DOMINIO QUE NO EXISTE
-print("*"*30, "ELIMINA UN DOMINIO QUE NO EXISTE", "*"*30)
-dominio = {
-    "nombre": "gato1.com"
-}
-response = requests.delete(f"{BASE_URL_API}/dominio/{dominio['nombre']}")
-print("\nRespuesta Elimina Dominio que no existe:", response.status_code)
-print("Contenido Respuesta:", response.json(), "\n\n")
-# Lanzamos excepción si el codigo no es 200.
-assert response.status_code != 200
+def test_12_actualiza_formato_etiquetas_erroneo_falla():
+    """Intenta actualizar con formato de etiquetas incorrecto (espera que no sea 200)."""
+    print("*"*30, "ACTUALIZA CON FORMATO DE ETIQUETAS ERRONEO", "*"*30)
+    dominio = "baliancer.com"
+    datos = {"etiquetas": "Suplantacion"} # Valor de etiquetas como string, no lista
+    response = requests.patch(f"{BASE_URL_API}/dominio/{dominio}", json=datos)
+    print("\nRespuesta Actualiza con formato de etiquetas erroneo:", response.status_code)
+    print("Contenido Respuesta:", response.json(), "\n")
+    assert response.status_code != 200
 
-# LISTA DOMINIOS POR ESTADO DESCONOCIDO
-print("*"*30, "LISTA DOMINIOS POR ESTADO DESCONOCIDO", "*"*30)
-estado_dominio = "Desconocido"
-response = requests.get(f"{BASE_URL_API}/dominios/estado/{estado_dominio}")
-print("\nRespuesta Lista Dominios/Estado:", response.status_code)
-print("Contenido Respuesta:", response.json(), "\n\n")
-# Lanzamos excepción si el codigo no es 200.
-assert response.status_code == 200
+# --- PRUEBAS DE LISTADO POR FILTRO (GET) ---
 
-# LISTA DOMINIOS POR ESTADO MALICIOSO
-print("*"*30, "LISTA DOMINIOS POR ESTADO MALICIOSO", "*"*30)
-estado_dominio = "Malicioso"
-response = requests.get(f"{BASE_URL_API}/dominios/estado/{estado_dominio}")
-print("\nRespuesta Lista Dominios/Estado:", response.status_code)
-print("Contenido Respuesta:", response.json(), "\n\n")
-# Lanzamos excepción si el codigo no es 200.
-assert response.status_code == 200
+def test_13_lista_dominios_por_estado_desconocido():
+    """Lista dominios por estado 'Desconocido'."""
+    print("*"*30, "LISTA DOMINIOS POR ESTADO DESCONOCIDO", "*"*30)
+    estado_dominio = "Desconocido"
+    response = requests.get(f"{BASE_URL_API}/dominios/estado/{estado_dominio}")
+    print("\nRespuesta Lista Dominios/Estado:", response.status_code)
+    print("Contenido Respuesta:", response.json(), "\n")
+    assert response.status_code == 200
 
-# LISTA DOMINIOS POR SCORE MENOR DE 40
-print("*"*30, "LISTA DOMINIOS POR SCORE MENOR DE 40", "*"*30)
-score = 40
-response = requests.get(f"{BASE_URL_API}/dominios/reputacion/{score}")
-print("\nRespuesta Lista Diminios/Score:", response.status_code)
-print("Contenido Respuesta:", response.json(), "\n\n")
-# Lanzamos excepción si el codigo no es 200.
-assert response.status_code == 200
+def test_14_lista_dominios_por_estado_malicioso():
+    """Lista dominios por estado 'Malicioso'."""
+    print("*"*30, "LISTA DOMINIOS POR ESTADO MALICIOSO", "*"*30)
+    estado_dominio = "Malicioso"
+    response = requests.get(f"{BASE_URL_API}/dominios/estado/{estado_dominio}")
+    print("\nRespuesta Lista Dominios/Estado:", response.status_code)
+    print("Contenido Respuesta:", response.json(), "\n")
+    assert response.status_code == 200
 
-# LISTA DOMINIOS POR SCORE MENOR DE 60
-print("*"*30, "LISTA DOMINIOS POR SCORE MENOR DE 60", "*"*30)
-score = 60
-response = requests.get(f"{BASE_URL_API}/dominios/reputacion/{score}")
-print("\nRespuesta Lista Diminios/Score:", response.status_code)
-print("Contenido Respuesta:", response.json(), "\n\n")
-# Lanzamos excepción si el codigo no es 200.
-assert response.status_code == 200
+def test_15_lista_dominios_por_score_menor_40():
+    """Lista dominios por score menor de 40."""
+    print("*"*30, "LISTA DOMINIOS POR SCORE MENOR DE 40", "*"*30)
+    score = 40
+    response = requests.get(f"{BASE_URL_API}/dominios/reputacion/{score}")
+    print("\nRespuesta Lista Dominios/Score:", response.status_code)
+    print("Contenido Respuesta:", response.json(), "\n")
+    assert response.status_code == 200
 
-# LISTA DOMINIOS QUE DISPONEN DE SERVIDOR DE CORREO
-print("*"*30, "LISTA DOMINIOS QUE DISPONEN DE SERVIDOR DE CORREO", "*"*30)
-mx = True
-response = requests.get(f"{BASE_URL_API}/dominios/mx/{mx}")
-print("\nRespuesta Lista Diminios con MX:", response.status_code)
-print("Contenido Respuesta:", response.json(), "\n\n")
-# Lanzamos excepción si el codigo no es 200.
-assert response.status_code == 200
+def test_16_lista_dominios_con_servidor_correo():
+    """Lista dominios que DISPONEN de servidor de correo (MX=True)."""
+    print("*"*30, "LISTA DOMINIOS QUE DISPONEN DE SERVIDOR DE CORREO", "*"*30)
+    mx = True
+    response = requests.get(f"{BASE_URL_API}/dominios/mx/{mx}")
+    print("\nRespuesta Lista Dominios con MX:", response.status_code)
+    print("Contenido Respuesta:", response.json(), "\n")
+    assert response.status_code == 200
 
-# LISTA DOMINIOS QUE NO DISPONEN DE SERVIDOR DE CORREO
-print("*"*30, "LISTA DOMINIOS QUE NO DISPONEN DE SERVIDOR DE CORREO", "*"*30)
-mx = False
-response = requests.get(f"{BASE_URL_API}/dominios/mx/{mx}")
-print("\nRespuesta Lista Diminios sin MX:", response.status_code)
-print("Contenido Respuesta:", response.json(), "\n\n")
-# Lanzamos excepción si el codigo no es 200.
-assert response.status_code == 200
+def test_17_lista_dominios_sin_servidor_correo():
+    """Lista dominios que NO DISPONEN de servidor de correo (MX=False)."""
+    print("*"*30, "LISTA DOMINIOS QUE NO DISPONEN DE SERVIDOR DE CORREO", "*"*30)
+    mx = False
+    response = requests.get(f"{BASE_URL_API}/dominios/mx/{mx}")
+    print("\nRespuesta Lista Dominios sin MX:", response.status_code)
+    print("Contenido Respuesta:", response.json(), "\n")
+    assert response.status_code == 200
 
-print("*"*30, "PASADAS TODAS LAS PRUEBAS CON EXITO", "*"*30, "\n\n")
+# --- PRUEBAS DE ELIMINACIÓN (DELETE) ---
+
+def test_18_elimina_un_dominio():
+    """Elimina un dominio existente (leon.com)."""
+    print("*"*30, "ELIMINA UN DOMINIO", "*"*30)
+    dominio = "leon.com"
+    response = requests.delete(f"{BASE_URL_API}/dominio/{dominio}")
+    print("\nRespuesta Elimina Dominio:", response.status_code)
+    print("Contenido Respuesta:", response.json(), "\n")
+    assert response.status_code == 200
+
+def test_19_elimina_dominio_que_no_existe_falla():
+    """Intenta eliminar un dominio que no existe (espera que no sea 200)."""
+    print("*"*30, "ELIMINA UN DOMINIO QUE NO EXISTE", "*"*30)
+    dominio = "gato1.com"
+    response = requests.delete(f"{BASE_URL_API}/dominio/{dominio}")
+    print("\nRespuesta Elimina Dominio que no existe:", response.status_code)
+    print("Contenido Respuesta:", response.json(), "\n")
+    assert response.status_code != 200
+
+# --- FIN DE PRUEBAS ---
+
+def test_20_final_message():
+    """Imprime mensaje de éxito si todos los tests pasan."""
+    print("*"*30, "PASADAS TODAS LAS PRUEBAS CON EXITO", "*"*30, "\n\n")
