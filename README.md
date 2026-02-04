@@ -51,6 +51,7 @@ proyecto-jupiter-phising-detect/
 ## 🛠️ Tecnologías Utilizadas
 
 ### Backend
+
 - **FastAPI** - Framework web para microservicios
 - **SQLAlchemy** - ORM para PostgreSQL
 - **Pydantic** - Validación de datos
@@ -58,6 +59,7 @@ proyecto-jupiter-phising-detect/
 - **httpx** - Cliente HTTP asíncrono
 
 ### Infraestructura
+
 - **Docker** - Contenerización
 - **Docker Compose** - Orquestación multi-contenedor
 - **PostgreSQL** - Base de datos relacional
@@ -65,11 +67,13 @@ proyecto-jupiter-phising-detect/
 - **Nginx** - Reverse proxy y load balancer
 
 ### Integraciones
+
 - **dnspython** - Consultas DNS
 - **VirusTotal API** - Análisis de reputación
 - **Urlscan.io API** - Análisis de URLs
 
 ### Testing & CI/CD
+
 - **pytest** - Testing
 - **GitHub Actions** - CI/CD
 - **ruff** - Linting y formatting
@@ -79,6 +83,7 @@ proyecto-jupiter-phising-detect/
 ### Opción A: Docker (Recomendado - Arquitectura de Microservicios)
 
 #### Requisitos previos
+
 - Docker
 - Docker Compose
 
@@ -115,6 +120,7 @@ curl http://localhost/health
 ```
 
 **URLs disponibles:**
+
 - API: `http://localhost` (vía Nginx)
 - Documentación: `http://localhost/docs`
 - Gateway directo: `http://localhost:8000`
