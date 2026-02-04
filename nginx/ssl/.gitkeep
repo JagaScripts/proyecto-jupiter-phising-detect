@@ -1,0 +1,7 @@
+# Certificados SSL
+# Coloca aquí tus certificados SSL si deseas habilitar HTTPS
+
+# Para generar certificados autofirmados para desarrollo:
+# openssl req -x509 -nodes -days 365 -newkey rsa:2048 \
+#   -keyout key.pem -out cert.pem \
+#   -subj "/C=ES/ST=Madrid/L=Madrid/O=PontIA/CN=localhost"
