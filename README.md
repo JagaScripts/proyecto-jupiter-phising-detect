@@ -1,8 +1,8 @@
 # Proyecto Júpiter - Phishing Detect IA
 
-**Máster en IA, Cloud Computing & DevOps - PontIA.tech**
+## Máster en IA, Cloud Computing & DevOps - PontIA.tech**
 
-## Autores
+### Autores
 
 - Jose Antonio González Alcántara - <jagascripts@gmail.com>
 - Enrique Cogolludo Fernández - <enriquecogolludoglvz@gmail.com>
@@ -26,7 +26,7 @@ API REST para gestión y análisis de reputación de dominios mediante integraci
 
 ## 📁 Estructura del Proyecto
 
-```
+```bash
 proyecto-jupiter-phising-detect/
 ├── app/
 │   ├── __init__.py
