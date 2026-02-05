@@ -33,6 +33,8 @@ def _gestiona_fuentes_reputacion(dominio: models.Dominio, value: list[dict]) -> 
 
 # Funcion privada para calcular el score en base a los scores de las distintas fuentes de reputación
 def _calcula_score(fuentes_reputacion: list[dict]) -> int:
+	if not fuentes_reputacion:
+		return 0
 	total_score = 0
 	for fuente in fuentes_reputacion:
 		for _, score in fuente.items():
@@ -113,7 +115,7 @@ def update_dominio(db: Session,
 
 		if field == "estado_dominio" and value is not None:
 			dominio.estado_dominio = value
-			flag_modified(dominio, "etiquetas") # Indica a SQLAlchemy que ese valor ha cambiado sino no detecta el cambio
+			flag_modified(dominio, "estado_dominio") # Indica a SQLAlchemy que ese valor ha cambiado sino no detecta el cambio
 			logger.debug(f"[+] Actualizado el estado del dominio con el valor '{value}'")
 	# Llamamos a la funcion privada que calcula la media de los score de todas las fuente de reputacion
 	dominio.score = _calcula_score(dominio.fuentes_reputacion)
@@ -142,7 +144,7 @@ def lista_dom_estado(db: Session, estado: models.EstadoDominio) -> list[models.D
 	dominios = db.execute(select(models.Dominio).where(models.Dominio.estado_dominio == estado)).scalars().all()
 	if not dominios:
 		logger.info(f"[-] No existen dominios cuyo estado es '{estado}'")
-		return dominios
+		return []
 	else:
 		logger.info(f"[+] Se muestran {len(dominios)} dominio/s cuyo/s estado es '{estado}'")
 	return dominios
@@ -153,7 +155,7 @@ def lista_dom_score(db: Session, score: int) -> list[models.Dominio] | None:
 	dominios = db.execute(select(models.Dominio).where(models.Dominio.score < score)).scalars().all()
 	if not dominios:
 		logger.info(f"[-] No existen dominios con una reputación inferior a {score}")
-		return dominios
+		return []
 	else:
 		logger.info(f"[+] Se muestran {len(dominios)} dominios con una reputación inferior a {score}")
 	return dominios
@@ -170,7 +172,7 @@ def lista_dom_mx(db: Session, mx: bool) -> list[models.Dominio] | None:
 			logger.info(f"[-] No existen dominios con servidor de correo activo")
 		else:
 			logger.info(f"[-] No existen dominios sin servidor de correo activo")
-		return None
+		return []
 	else:
 		if mx:
 			logger.info(f"[+] Se muestran {len(dominios)} dominios con servidor de correo activo")

@@ -1,0 +1,158 @@
+version: '3.8'
+
+services:
+  # Base de datos PostgreSQL
+  postgres:
+    image: postgres:15-alpine
+    container_name: phising-postgres
+    environment:
+      POSTGRES_DB: dominios
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - phising-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Cache Redis
+  redis:
+    image: redis:7-alpine
+    container_name: phising-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - phising-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Servicio DNS
+  dns-service:
+    build:
+      context: ./services/dns-service
+      dockerfile: Dockerfile
+    container_name: phising-dns-service
+    ports:
+      - "8001:8001"
+    networks:
+      - phising-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8001/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    restart: unless-stopped
+
+  # Servicio de Reputación
+  reputation-service:
+    build:
+      context: ./services/reputation-service
+      dockerfile: Dockerfile
+    container_name: phising-reputation-service
+    environment:
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      CACHE_TTL: 3600
+      API_TIMEOUT: ${API_TIMEOUT:-6}
+      API_KEY_VT: ${API_KEY_VT}
+      API_URLSCAN: ${API_URLSCAN}
+    ports:
+      - "8002:8002"
+    depends_on:
+      redis:
+        condition: service_healthy
+    networks:
+      - phising-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8002/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    restart: unless-stopped
+
+  # Servicio CRUD de Dominios
+  domain-crud:
+    build:
+      context: .
+      dockerfile: ./services/domain-crud/Dockerfile
+    container_name: phising-domain-crud
+    environment:
+      DATABASE_URL: postgresql://postgres:postgres@postgres:5432/dominios
+    ports:
+      - "8003:8003"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - phising-network
+    volumes:
+      - ./shared:/app/shared:ro
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8003/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    restart: unless-stopped
+
+  # API Gateway
+  api-gateway:
+    build:
+      context: .
+      dockerfile: ./services/api-gateway/Dockerfile
+    container_name: phising-api-gateway
+    ports:
+      - "8000:8000"
+    depends_on:
+      - dns-service
+      - reputation-service
+      - domain-crud
+    networks:
+      - phising-network
+    volumes:
+      - ./shared:/app/shared:ro
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    restart: unless-stopped
+
+  # Nginx Reverse Proxy
+  nginx:
+    image: nginx:alpine
+    container_name: phising-nginx
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./nginx/ssl:/etc/nginx/ssl:ro
+    depends_on:
+      - api-gateway
+    networks:
+      - phising-network
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    restart: unless-stopped
+
+networks:
+  phising-network:
+    driver: bridge
+
+volumes:
+  postgres_data:
+  redis_data:

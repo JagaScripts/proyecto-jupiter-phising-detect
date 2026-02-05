@@ -64,6 +64,8 @@ class ActualizaDominio(BaseModel):
     # Vamos a controlar que las etiquetas sean de tipo lista, si no lanzamos excepcion
     @field_validator("etiquetas", mode="before")
     def valida_etiquetas(cls, etiquetas):
+        if etiquetas is None:
+            return None
         if not isinstance(etiquetas, list):
             logger.info(f"El usuario ha introducido etiquetas '{etiquetas}' en un formato incorrecto")
             raise ValueError("Las etiquetas deben estar en formato lista. ['etiqueta1', 'etiqueta2', ...]")
