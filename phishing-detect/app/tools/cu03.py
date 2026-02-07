@@ -1,25 +1,36 @@
 from __future__ import annotations
+import uuid
 from typing import Any
 from pydantic import ValidationError
+from sqlalchemy import select, delete
+from sqlalchemy.orm import Session
 from app.models.dsl import AlertRuleDSL
-from app.storage.memory import MEM_DB
+from app.db.models import Domain, AlertRule, AlertRuleTarget, ScheduleJob
 
 def list_domains(
         user_id: str,
-        query: str | None = None
+        query: str | None = None,
+        *,
+        db: Session
 ) -> dict[str, Any]:
-
-    domains = [
-        {"domain_id": "dom_101", "domain_name": "prueba1.com", "tags": ["marca"], "status": "active"},
-        {"domain_id": "dom_205", "domain_name": "prueba2.es", "tags": ["marca", "es"], "status": "active"},
-        {"domain_id": "dom_777", "domain_name": "prueba3-dev.com", "tags": ["dev"], "status": "inactive"},
-    ]
-
+    sentencia = select(Domain).where(Domain.user_id == user_id)
+    
     if query:
         q = query.lower().strip()
-        domains = [domain for domain in domains if q in domain["domain_name"]]
+        sentencia = sentencia.where(Domain.domain_name.ilike(f"%{q}%"))
     
-    return {"domains": domains}
+    rows = db.execute(sentencia).scalar().all()
+    
+    return {
+        "domains": [
+            {
+                "domain_id": row.id,
+                "domain_name": row.domain_name,
+                "tags": row.tags or [],
+                "status": row.status
+            } for row in rows
+        ]
+    }
 
 
 def validate_alert_rule_dsl(
@@ -40,7 +51,7 @@ def validate_alert_rule_dsl(
                     "severity": "error",
                 }
             )
-        return {"valid": False, "issues": issues, "requires_confirmation": False, "reason": "",}
+        return {"valid": False, "issues": issues, "requires_confirmation": False, "reason": ""}
     
     requires_confirmation = False
     reason = ""
@@ -67,11 +78,13 @@ def validate_alert_rule_dsl(
 
 def resolve_scope(
         user_id: str,
-        scope: dict[str, Any]
+        scope: dict[str, Any],
+        *,
+        db: Session,
 ) -> dict[str, Any]:
     target_type = scope.get("target_type")
 
-    domains = list_domains(user_id)["domains"]
+    domains = list_domains(user_id, db=db)["domains"]
 
     if target_type == "all":
         domain_ids = [domain["domain_id"] for domain in domains if domain["status"] == "active"]
@@ -110,11 +123,13 @@ def resolve_scope(
 def preview_rule_effect(
         user_id: str,
         rule_dsl: dict[str, Any],
-        resolved_scope: dict[str, Any] | None = None
+        resolved_scope: dict[str, Any] | None = None,
+        *,
+        db: Session,
 ) -> dict[str, Any]:
     # estimación simple (no hay domain_state real todavía)
     if not resolved_scope:
-        resolved_scope = resolve_scope(user_id, rule_dsl.get("scope", {"target_type": "all"})).get("resolved_scope", [])
+        resolved_scope = resolve_scope(user_id, rule_dsl.get("scope", {"target_type": "all"}), db=db).get("resolved_scope", {})
     
     domain_ids = resolved_scope.get("domain_ids", [])
 
@@ -132,27 +147,87 @@ def upsert_alert_rule(
         user_id: str,
         rule_dsl: dict[str, Any],
         mode: str = "create",
-        rule_id: str | None = None
+        rule_id: str | None = None,
+        *,
+        db: Session,
 ) -> dict[str, Any]:
-    new_rule_id = MEM_DB.create_rule(user_id, rule_dsl)
-    return {"rule_id": new_rule_id, "version": 1, "created": True,}
+    new_id = f"rule_{uuid.uuid4().hex[:8]}"
+    name = rule_dsl.get("name", "Regla")
+    rule_type = rule_dsl.get("rule_type", "risk")
+    severity = rule_dsl.get("severity", "medium")
+    enabled = bool(rule_dsl.get("enabled", True))
+
+    logic_json = {
+        "dsl_version": rule_dsl.get("dsl_version", "v1.0"),
+        "rule_type": rule_type,
+        "scope": rule_dsl.get("scope", {}),
+        "condition": rule_dsl.get("condition", {}),
+        "channels": rule_dsl.get("channels", []),
+        "cooldown": rule_dsl.get("cooldown", {}),
+        "dedup": rule_dsl.get("dedup", {}),
+        "metadata": rule_dsl.get("metadata", {}),
+    }
+
+    schedule_json = rule_dsl.get("schedule", {})
+
+    row = AlertRule(
+        id=new_id,
+        user_id=user_id,
+        name=name,
+        rule_type=rule_type,
+        severity=severity,
+        is_enabled=enabled,
+        version=1,
+        logic_json=logic_json,
+        schedule_json=schedule_json,
+    )
+
+    db.add(row)
+    db.commit()
+
+    return {"rule_id": new_id, "version": 1, "created": True,}
 
 
 def set_rule_targets(
         user_id: str,
         rule_id: str,
-        resolved_scope: dict[str, Any]
+        resolved_scope: dict[str, Any],
+        *,
+        db: Session,
 ) -> dict[str, Any]:
     domain_ids = resolved_scope.get("domain_ids", [])
-    MEM_DB.set_targets(rule_id, domain_ids)
+
+    # limpia targets previos
+    db.execute(delete(AlertRuleTarget).where(AlertRuleTarget.rule_id == rule_id))
+
+    for dom_id in domain_ids:
+        db.add(AlertRuleTarget(rule_id=rule_id, domain_id=dom_id))
+    
+    db.commit()
+
     return {"attached": {"target_type": "domains", "domain_ids_count": len(domain_ids)},}
 
 
 def register_rule_schedule(
         user_id: str,
         rule_id: str,
-        schedule: dict[str, Any]
+        schedule: dict[str, Any],
+        *,
+        db: Session,
 ) -> dict[str, Any]:
-    job_id = MEM_DB.register_schedule(rule_id, schedule)
+    job_id = f"job_{uuid.uuid4().hex[:8]}"
+
+    row = ScheduleJob(
+        id=job_id,
+        user_id=user_id,
+        rule_id=rule_id,
+        schedule_json=schedule,
+        status="active",
+        next_run_at=None,
+    )
+
+    db.add(row)
+    db.commit()
+    
     return {"job_id": job_id, "next_run_at": "mock_next_run",}
 
