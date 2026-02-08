@@ -212,7 +212,7 @@ def _tools_schema() -> list[dict[str, Any]]:
                     "rule_id": {"type": "string"},
                     "resolved_scope": {"type": "object"}
                 },
-                "required": ["user_id", "rule_id", "resolved_scope"],
+                "required": ["user_id", "session_id", "rule_id"],
                 "additionalProperties": False,
             },
         },
@@ -227,7 +227,7 @@ def _tools_schema() -> list[dict[str, Any]]:
                     "rule_id": {"type": "string"},
                     "schedule": {"type": "object"}
                 },
-                "required": ["user_id", "rule_id", "schedule"],
+                "required": ["user_id", "session_id", "rule_id"],
                 "additionalProperties": False,
             },
         },
@@ -250,7 +250,7 @@ Campos esperados en el draft (MVP):
 - condition: p.ej {"days_before_expiry": 5} (para expiry)
 - scope: {"target_type":"domains","domain_ids":[...]} o {"target_type":"domains","domains":["acme.es"]} o {"target_type":"all"}
 - channels: [{"kind":"email","to":"user@dominio.com"}]
-- schedule: {"frecuency":"daily"|"weekly"|"hourly", "at_time":"09:00", "timezone":"Europe/Madrid"} (mínimo frecuency)
+- schedule: {"frequency":"daily"|"weekly"|"hourly", "at_time":"09:00", "timezone":"Europe/Madrid"} (mínimo frequency)
 - cooldown: {"seconds": 0} o {"seconds": 86400}
 
 Si faltan datos, pregunta SOLO por los que faltan.

@@ -5,7 +5,7 @@ from app.api.health import router as health_router
 from app.api.orchestrator import router as orchestrator_router
 from app.api.audit import router as audit_router
 from app.api.web import router as web_router
-
+from app.api.rules import router as rules_router
 
 from app.core.logging import setup_logging, get_logger
 from app.middleware.request_context import request_context_middleware
@@ -36,6 +36,7 @@ def create_app() -> FastAPI:
     app.include_router(chat_router, prefix="/v1", tags=["chat"])
     app.include_router(orchestrator_router, prefix="/v1", tags=["orchestrator"])
     app.include_router(audit_router, prefix="/v1", tags=["audit"])
+    app.include_router(rules_router, prefix="/v1", tags=["rules"])
 
     logger.info("App creada", extra={"event": "app_start", "extra": {"version": "0.1.0"}})
     

@@ -33,7 +33,7 @@ Condition = Union[RiskCondition, ExpiryCondition]
 class Schedule(BaseModel):
     """ Define la frecuencia y el horario de ejecución de la regla. """
 
-    frecuency: Literal["hourly", "daily", "weekly"]
+    frequency: Literal["hourly", "daily", "weekly"]
     at_time: str | None = Field(default=None, description="HH:MM (requerido para daily/weekly)")
     timezone: str = "Europe/Madrid"
     days_of_week: list[Literal["lunes", "martes", "miercoles", "jueves", "viernes", "sabado", "domingo"]] | None = None

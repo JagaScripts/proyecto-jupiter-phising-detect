@@ -6,6 +6,7 @@ from sqlalchemy import select, delete
 from sqlalchemy.orm import Session
 from app.models.dsl import AlertRuleDSL
 from app.db.models import Domain, AlertRule, AlertRuleTarget, ScheduleJob
+from app.storage.rule_draft_store import get_rule_draft
 
 
 def list_domains(
@@ -29,21 +30,19 @@ def list_domains(
     sentencia = select(Domain).where(Domain.user_id == user_id)
     
     if query:
-        q = query.lower().strip()
-        sentencia = sentencia.where(Domain.domain_name.ilike(f"%{q}%"))
+        q = f"%{query.strip().lower()}%"
+        sentencia = sentencia.where(Domain.domain_name.ilike({q}))
     
-    rows = db.execute(sentencia).scalar().all()
+    rows = db.execute(sentencia).scalars().all()
     
-    return {
-        "domains": [
-            {
-                "domain_id": row.id,
-                "domain_name": row.domain_name,
-                "tags": row.tags or [],
-                "status": row.status
-            } for row in rows
-        ]
-    }
+    items = []
+    for d in rows:
+        items.append({
+            "id": d.id,
+            "domain": getattr(d, "domain_name", None) or getattr(d, "name", None),
+        })
+
+    return {"items": items, "count": len(items)}
 
 
 def validate_alert_rule_dsl(
@@ -82,13 +81,13 @@ def validate_alert_rule_dsl(
 
     scope_all = parsed.scope.target_type == "all"
     external = any(channel.kind in ("email", "webhook") for channel in parsed.channels)
-    very_frecuent = parsed.schedule.frecuency == "hourly"
+    very_frecuent = parsed.schedule.frequency == "hourly"
     if scope_all and external and very_frecuent:
         requires_confirmation = True
         reason = "Impacto alto: scope=all + canal externo + evaluación hourly"
 
     normalized = parsed.model_dump()
-    if parsed.schedule.frecuency in ("daily", "weekly") and not parsed.schedule.at_time:
+    if parsed.schedule.frequency in ("daily", "weekly") and not parsed.schedule.at_time:
         normalized["schedule"]["at_time"] = "09:00"
 
     return {
@@ -115,42 +114,70 @@ def resolve_scope(
         db (Session): Sesión de base de datos.
 
     Returns:
-        dict[str, Any]: Scope resuelto con domain_ids y estadísticas básicas.
+        dict[str, Any]: Scope resuelto con target_type, domain_ids y estadísticas básicas.
     """
 
-    target_type = scope.get("target_type")
-
-    domains = list_domains(user_id, db=db)["domains"]
+    target_type = (scope.get("target_type") or "domanins").strip().lower()
 
     if target_type == "all":
-        domain_ids = [domain["domain_id"] for domain in domains if domain["status"] == "active"]
-        return {
-            "resolved_scope": {
-                "target_type": "domains",
-                "domain_ids": domain_ids,
-                "stats":{"marched_domains": len(domain_ids)},
-            }
-        }
+        return {"target_type": "all", "domain_ids": [], "missing_domains": []}
     
     if target_type == "domains":
-        domain_ids = scope.get("domain_ids") or []
-        return {
-            "resolved_scope": {
-                "target_type": "domains",
-                "domain_ids": domain_ids,
-                "stats":{"marched_domains": len(domain_ids)},
-            }
-        }
+        domains = scope.get("domains") or []
+        domain_ids = scope.get("domains_ids") or []
+
+        if domain_ids:
+            return {"target_type": "domains", "domains_ids": domain_ids, "missing_domains": []}
+        
+        if not domains:
+            return {"error": "invalid_scope", "message": "scope.domains o scope.domains_ids requerido"}
+        
+        wanted = [domain.strip().lower() for domain in domains if isinstance(domain, str) and domain.strip()]
+        if not wanted:
+            return {"error": "invalid_scope", "message": "scope.domains vacío"}
+
+        rows = db.execute(
+            select(Domain).where(Domain.user_id == user_id, Domain.domain_name.in_(wanted))
+        ).scalars().all()
+
+        found_map = {domain.domain_name.lower(): domain.id for domain in rows if getattr(domain, "domain_name", None)}
+        missing = [name for name in wanted if name not in found_map]
+        resolved_ids = [found_map[name] for name in wanted if name in found_map]
     
-    if target_type == "tags":
-        tags = set(scope.get("tags") or [])
-        matched = [domain["domain_id"] for domain in domains if tags.intersection(set(domain.get("tags", []))) and domain["status"] == "active"]
         return {
-            "resolved_scope": {
-                "target_type": "domains",
-                "domain_ids": matched,
-                "stats":{"marched_domains": len(matched)},
-            }
+            "target_type": "domains",
+            "domain_ids": resolved_ids,
+            "missing_domains": missing,
+            "stats": {"matched_domains": len(resolved_ids)}
+        }
+
+    if target_type == "tags":
+        tags = scope.get("tags") or []
+        wanted_tags = {tag.strip().lower() for tag in tags if isinstance(tag, str) and tag.strip()}
+
+        if not wanted_tags:
+            return {"error": "invalid_scope", "message": "scope.tags vacío"}
+
+        rows = db.execute(
+            select(Domain).where(Domain.user_id == user_id, Domain.status == "active")
+        ).scalars().all()
+
+        matched_ids: list[str] = []
+
+        for row in rows:
+            d_tags = getattr(row, "tags", None) or []
+            if isinstance(d_tags, str):
+                d_tags = [d_tags]
+
+            d_tags_norm = {str(x).strip().lower() for x in d_tags if x is not None and str(x).strip()}
+            if wanted_tags.intersection(d_tags_norm):
+                matched_ids.append(row.id)
+
+        return {
+            "target_type": "domains",
+            "domain_ids": matched_ids,
+            "missing_domains": [],
+            "stats": {"matched_domains": len(matched_ids)},
         }
     
     return {"error": "validation_failed", "message": "scope.target_type inválido",}
@@ -254,7 +281,8 @@ def upsert_alert_rule(
 def set_rule_targets(
         user_id: str,
         rule_id: str,
-        resolved_scope: dict[str, Any],
+        session_id: str,
+        resolved_scope: dict[str, Any] | None = None,
         *,
         db: Session,
 ) -> dict[str, Any]:
@@ -264,12 +292,27 @@ def set_rule_targets(
     Args:
         user_id (str): Identificador del usuario.
         rule_id (str): Identificador de la regla.
-        resolved_scope (dict[str, Any]): Scope resuelto con domain_ids.
+        session_id (str): Identificador de sesion.
+        resolved_scope (dict[str, Any]) Opcional: Scope resuelto con domain_ids.
         db (Session): Sesión de base de datos.
 
     Returns:
         dict[str, Any]: Resumen de targets asociados.
     """
+    if resolved_scope is None:
+        draft = get_rule_draft(session_id)
+        resolved_scope = draft.get("resolved_scope") or (draft.get("normalized_rule") or {}).get("scope")
+
+        # fallback adicional: si guardaste normalized_rule.scope ya resuelta
+        if not resolved_scope:
+            normalized_rule = draft.get("normalized_rule") or {}
+            resolved_scope = normalized_rule.get("scope")
+
+    if not resolved_scope:
+        return {
+            "error": "missing_resolved_scope",
+            "message": "resolved_scope no proporcionado y no se encontró en el draft (resolved_scope/normalized_rule.scope).",
+        }
 
     domain_ids = resolved_scope.get("domain_ids", [])
 
@@ -287,7 +330,8 @@ def set_rule_targets(
 def register_rule_schedule(
         user_id: str,
         rule_id: str,
-        schedule: dict[str, Any],
+        session_id: str,
+        schedule: dict[str, Any] | None = None,
         *,
         db: Session,
 ) -> dict[str, Any]:
@@ -297,12 +341,32 @@ def register_rule_schedule(
     Args:
         user_id (str): Identificador del usuario.
         rule_id (str): Identificador de la regla.
-        schedule (dict[str, Any]): Configuración de schedule (frecuencia/horario/etc.).
+        session_id (str): Identificador de la sesión
+        schedule (dict[str, Any]) Opcional: Configuración de schedule (frecuencia/horario/etc.).
         db (Session): Sesión de base de datos.
 
     Returns:
         dict[str, Any]: Datos del job creado (job_id y próxima ejecución).
     """
+
+    if schedule is None:
+        draft = get_rule_draft(session_id)
+        normalized_rule = draft.get("normalized_rule") or {}
+        schedule = normalized_rule.get("schedule") or draft.get("schedule")
+
+    if not schedule:
+        return {
+            "error": "missing_schedule",
+            "message": "schedule no proporcionado y no se encontró en el draft (normalized_rule.schedule / draft.schedule).",
+        }
+    
+    freq = schedule.get("frequency")
+    if not isinstance(freq, str) or not freq.strip():
+        return {
+            "error": "invalid_schedule",
+            "message": "schedule.frequency es obligatorio.",
+            "schedule_received": schedule,
+        }
 
     job_id = f"job_{uuid.uuid4().hex[:8]}"
 
