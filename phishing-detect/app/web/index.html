@@ -1,0 +1,205 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Phishing Chat MVP</title>
+  <style>
+    :root { font-family: ui-sans-serif, system-ui, Arial; }
+    body { margin: 0; background: #0b1220; color: #e8eefc; }
+    .wrap { max-width: 980px; margin: 0 auto; padding: 16px; }
+    .card { background: #111b2f; border: 1px solid #23314f; border-radius: 12px; padding: 12px; }
+    .row { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
+    label { font-size: 12px; color: #b8c5e6; }
+    input, textarea, button {
+      background: #0c162b; color: #e8eefc; border: 1px solid #2a3a62;
+      border-radius: 10px; padding: 10px 12px; outline: none;
+    }
+    input { width: 220px; }
+    textarea { width: 100%; min-height: 84px; resize: vertical; }
+    button { cursor: pointer; }
+    button:disabled { opacity: 0.55; cursor: not-allowed; }
+    .chat { height: 56vh; overflow: auto; padding: 10px; background: #0c162b; border-radius: 12px; border: 1px solid #23314f; }
+    .msg { display: flex; margin: 10px 0; }
+    .bubble { max-width: 80%; padding: 10px 12px; border-radius: 14px; white-space: pre-wrap; line-height: 1.35; }
+    .user { justify-content: flex-end; }
+    .user .bubble { background: #1f3b7a; border: 1px solid #2b4ea0; }
+    .bot .bubble { background: #142341; border: 1px solid #23314f; }
+    .meta { font-size: 12px; color: #b8c5e6; margin-top: 8px; display: flex; gap: 10px; align-items: center; }
+    .pill { font-size: 12px; padding: 4px 8px; border-radius: 999px; border: 1px solid #2a3a62; background: #0c162b; }
+    .error { color: #ffb4b4; }
+    .small { font-size: 12px; color: #b8c5e6; }
+    .spacer { flex: 1; }
+  </style>
+</head>
+
+<body>
+  <div class="wrap">
+    <h2 style="margin: 8px 0 12px;">Phishing Chat MVP (CU-03)</h2>
+
+    <div class="card" style="margin-bottom: 12px;">
+      <div class="row">
+        <div>
+          <label>User ID</label><br />
+          <input id="userId" value="user_1" />
+        </div>
+
+        <div>
+          <label>Endpoint</label><br />
+          <input id="endpoint" value="/v1/chat" />
+        </div>
+
+        <div class="spacer"></div>
+
+        <div class="pill" id="statusPill">Listo</div>
+      </div>
+
+      <div class="meta">
+        <span>Último trace:</span>
+        <span class="pill" id="traceId">-</span>
+        <button id="openAuditBtn" disabled>Abrir audit</button>
+        <span class="small">Tip: Enter = enviar · Shift+Enter = nueva línea</span>
+      </div>
+    </div>
+
+    <div class="chat" id="chat"></div>
+
+    <div style="height: 10px;"></div>
+
+    <div class="card">
+      <label>Mensaje</label>
+      <textarea id="message" placeholder="Escribe tu consulta... (ej: 'Crea una alerta 15 días antes de caducar para todos mis dominios por email a soc@acme.com, daily 09:00, cooldown 24h')"></textarea>
+      <div class="row" style="margin-top: 10px;">
+        <button id="sendBtn">Enviar</button>
+        <button id="clearBtn">Limpiar</button>
+        <span class="small" id="hint"></span>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const chatEl = document.getElementById("chat");
+    const userIdEl = document.getElementById("userId");
+    const endpointEl = document.getElementById("endpoint");
+    const msgEl = document.getElementById("message");
+    const sendBtn = document.getElementById("sendBtn");
+    const clearBtn = document.getElementById("clearBtn");
+    const statusPill = document.getElementById("statusPill");
+    const traceIdEl = document.getElementById("traceId");
+    const openAuditBtn = document.getElementById("openAuditBtn");
+    const hintEl = document.getElementById("hint");
+
+    let lastTraceId = null;
+
+    function setStatus(text, isError=false) {
+      statusPill.textContent = text;
+      statusPill.style.borderColor = isError ? "#b34343" : "#2a3a62";
+      statusPill.style.color = isError ? "#ffb4b4" : "#e8eefc";
+    }
+
+    function addMessage(role, text) {
+      const msg = document.createElement("div");
+      msg.className = "msg " + (role === "user" ? "user" : "bot");
+
+      const bubble = document.createElement("div");
+      bubble.className = "bubble";
+      bubble.textContent = text;
+
+      msg.appendChild(bubble);
+      chatEl.appendChild(msg);
+      chatEl.scrollTop = chatEl.scrollHeight;
+    }
+
+    function setTrace(traceId) {
+      lastTraceId = traceId;
+      traceIdEl.textContent = traceId || "-";
+      openAuditBtn.disabled = !traceId;
+    }
+
+    openAuditBtn.addEventListener("click", () => {
+      if (!lastTraceId) return;
+      window.open(`/v1/audit/${encodeURIComponent(lastTraceId)}`, "_blank");
+    });
+
+    clearBtn.addEventListener("click", () => {
+      chatEl.innerHTML = "";
+      msgEl.value = "";
+      setTrace(null);
+      setStatus("Listo");
+      hintEl.textContent = "";
+    });
+
+    async function sendMessage() {
+      const user_id = (userIdEl.value || "").trim();
+      const endpoint = (endpointEl.value || "/v1/chat").trim();
+      const message = (msgEl.value || "").trim();
+
+      if (!user_id) {
+        setStatus("Falta user_id", true);
+        return;
+      }
+      if (!message) {
+        setStatus("Escribe un mensaje", true);
+        return;
+      }
+
+      addMessage("user", message);
+      msgEl.value = "";
+      hintEl.textContent = "";
+
+      sendBtn.disabled = true;
+      setStatus("Enviando...");
+
+      try {
+        const res = await fetch(endpoint, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ user_id, message }),
+        });
+
+        const traceId = res.headers.get("X-Trace-Id");
+        setTrace(traceId);
+
+        const data = await res.json().catch(() => ({}));
+
+        if (!res.ok) {
+          const errMsg = data?.detail ? JSON.stringify(data.detail) : (data?.error || `HTTP ${res.status}`);
+          addMessage("bot", `ERROR: ${errMsg}`);
+          setStatus("Error", true);
+          return;
+        }
+
+        const text = data.assistant_message;
+
+        if (!text) {
+            addMessage("bot", "ERROR: respuesta vacía del asistente.");
+            setStatus("Error", true);
+            return;
+        }
+
+        addMessage("bot", text);
+        setStatus("OK");
+      } catch (e) {
+        addMessage("bot", "ERROR: no se pudo conectar con el servidor.");
+        setStatus("Error de red", true);
+      } finally {
+        sendBtn.disabled = false;
+      }
+    }
+
+    sendBtn.addEventListener("click", sendMessage);
+
+    // Enter para enviar (Shift+Enter para salto de línea)
+    msgEl.addEventListener("keydown", (e) => {
+      if (e.key === "Enter" && !e.shiftKey) {
+        e.preventDefault();
+        sendMessage();
+      }
+    });
+
+    // Mensaje inicial
+    addMessage("bot", "Chat listo. Escribe una instrucción de CU-03 y pulsa Enviar.");
+    setStatus("Listo");
+  </script>
+</body>
+</html>
