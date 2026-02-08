@@ -340,13 +340,13 @@ def run_orchestrator(user_id: str, session_id: str, message: str, model: str) ->
             
             for call in tool_calls:
                 name = call.name
-                args = json.loads(call.arguments or {})
+                args = json.loads(call.arguments) if call.arguments else {}
                 fn = registry.get(name)
 
                 log_event(
                     logger,
                     level=20,
-                    event="tool_calls_execute",
+                    event="tool_call_execute",
                     message="Ejecutando Tool Call",
                     extra={"tool": name, "args": args},
                 )
@@ -373,6 +373,33 @@ def run_orchestrator(user_id: str, session_id: str, message: str, model: str) ->
                     except Exception as e:
                         tool_result = {"error": "tool_exception", "message": str(e)}
                 
+                # Si el validador devuelve normalized_rule, lo guardamos en draft
+                if name == "validate_alert_rule_dsl":
+                    try:
+                        if isinstance(tool_result, dict) and tool_result.get("valid") is True:
+                            normalized = tool_result.get("normalized_rule")
+                            if isinstance(normalized, dict) and normalized:
+                                upsert_rule_draft(
+                                    session_id=session_id_ctx.get() or "",
+                                    user_id=user_id_ctx.get() or "",
+                                    patch={"normalized_rule": normalized},
+                                )
+                    except Exception:
+                        # No reventamos el loop por fallos de persistencia del draft
+                        pass
+
+                # Si resolve_scope devuelve domain_ids, lo guardamos en draft como resolved_scope
+                if name == "resolve_scope":
+                    try:
+                        if isinstance(tool_result, dict) and "domain_ids" in tool_result:
+                            upsert_rule_draft(
+                                session_id=session_id_ctx.get() or "",
+                                user_id=user_id_ctx.get() or "",
+                                patch={"resolved_scope": tool_result},
+                            )
+                    except Exception:
+                        pass
+
                 log_event(
                     logger,
                     level=20,
