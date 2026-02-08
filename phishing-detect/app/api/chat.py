@@ -1,9 +1,10 @@
 from __future__ import annotations
-from typing import Optional
+import uuid
 from fastapi import APIRouter
 from pydantic import BaseModel, Field
 from app.orchestrator.engine import run_orchestrator
 from app.api.orchestrator import settings as orch_settings
+from app.core.logging import trace_id_ctx
 
 router = APIRouter()
 
@@ -32,14 +33,14 @@ def chat(req: ChatRequest) -> ChatResponse:
     Return:
         Devuelve la contestación del agente orquestador, el session_id y trace_id
     """
-    trace_id = "trace_dummy_001"
-    session_id = req.session_id or "sess_dummy_001"
+    session_id = req.session_id or f"sess_{uuid.uuid4().hex[:10]}"
+    trace_id = trace_id_ctx.get() or "-"
 
-    out = run_orchestrator(user_id=req.user_id, message=req.message, model=orch_settings.openai_model)
+    out = run_orchestrator(user_id=req.user_id, session_id=session_id, message=req.message, model=orch_settings.openai_model)
 
     return ChatResponse(
         session_id=session_id,
         trace_id = trace_id,
-        assistant_message=out["final_user_message"],
+        assistant_message=out.get("final_user_message", ""),
     )
 

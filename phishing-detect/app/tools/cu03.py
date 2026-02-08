@@ -80,7 +80,7 @@ def validate_alert_rule_dsl(
     requires_confirmation = False
     reason = ""
 
-    scope_all = parsed.scope.targets_type == "all"
+    scope_all = parsed.scope.target_type == "all"
     external = any(channel.kind in ("email", "webhook") for channel in parsed.channels)
     very_frecuent = parsed.schedule.frecuency == "hourly"
     if scope_all and external and very_frecuent:

@@ -78,6 +78,9 @@
   </div>
 
   <script>
+    // Restaurar session_id persistido (si existe)
+    window.__sid = localStorage.getItem("session_id");
+
     const chatEl = document.getElementById("chat");
     const userIdEl = document.getElementById("userId");
     const endpointEl = document.getElementById("endpoint");
@@ -131,6 +134,7 @@
 
     async function sendMessage() {
       const user_id = (userIdEl.value || "").trim();
+      const session_id = window.__sid || null;
       const endpoint = (endpointEl.value || "/v1/chat").trim();
       const message = (msgEl.value || "").trim();
 
@@ -154,13 +158,19 @@
         const res = await fetch(endpoint, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ user_id, message }),
+          body: JSON.stringify({ user_id, session_id, message }),
         });
 
         const traceId = res.headers.get("X-Trace-Id");
         setTrace(traceId);
 
         const data = await res.json().catch(() => ({}));
+
+        // Guardar session_id devuelto por backend
+        if (data.session_id) {
+            window.__sid = data.session_id;
+            localStorage.setItem("session_id", data.session_id);
+        }
 
         if (!res.ok) {
           const errMsg = data?.detail ? JSON.stringify(data.detail) : (data?.error || `HTTP ${res.status}`);

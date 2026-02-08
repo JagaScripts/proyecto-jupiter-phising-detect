@@ -5,7 +5,7 @@ from pydantic import BaseModel, Field
 
 class Scope(BaseModel):
     """ Define el alcance de la regla: todos los dominios, dominios específicos o por etiquetas. """
-    targets_type: Literal["all", "domains", "tags"]
+    target_type: Literal["all", "domains", "tags"]
     domain_ids: list[str] | None = None
     tags: list[str] | None = None
 
@@ -42,7 +42,7 @@ class Schedule(BaseModel):
 class Channel(BaseModel):
     """ Canal de notificación y configuración de envío. """
 
-    king: Literal["email", "webhook", "in_app"]
+    kind: Literal["email", "webhook", "in_app"]
     to: str | None = None
     template: Literal["default", "executive", "technical"] = "default"
 

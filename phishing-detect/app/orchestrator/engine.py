@@ -1,14 +1,62 @@
 from __future__ import annotations
 import json
+import uuid
 from typing import Any, Callable
 from openai import OpenAI
 from app.tools import cu03 as cu03_tools
 from app.core.logging import trace_id_ctx, user_id_ctx, session_id_ctx, get_logger, log_event
-from app.storage.audit_store import write_audit_event
-from app.db.session import SessionLocal
 from app.core.settings import settings
+from app.db.session import SessionLocal
+from app.storage.rule_draft_store import get_rule_draft, upsert_rule_draft, clear_rule_draft
+from app.storage.audit_store import write_audit_event
 
 logger = get_logger("orchestrator.engine")
+
+def tool_get_rule_draft(user_id: str, session_id: str) -> dict[str, Any]:
+    """
+    Devuelve el borrador de regla asociado a una sesión.
+
+    Args:
+        user_id (str): Identificador del usuario.
+        session_id (str): Identificador de la sesión.
+
+    Returns:
+        dict[str, Any]: Información de la sesión y borrador actual.
+    """
+    draft = get_rule_draft(session_id)
+    return {"session_id": session_id, "user_id": user_id, "draft": draft}
+
+
+def tool_update_rule_draft(user_id: str, session_id: str, patch: dict[str, Any]) -> dict[str, Any]:
+    """
+    Actualiza el borrador de regla de una sesión aplicando cambios parciales.
+
+    Args:
+        user_id (str): Identificador del usuario.
+        session_id (str): Identificador de la sesión.
+        patch (dict[str, Any]): Cambios a aplicar sobre el borrador.
+
+    Returns:
+        dict[str, Any]: Información de la sesión y borrador actualizado.
+    """
+    draft = upsert_rule_draft(session_id=session_id, user_id=user_id, patch=patch)
+    return {"session_id": session_id, "user_id": user_id, "draft": draft}
+
+
+def tool_clear_rule_draft(user_id: str, session_id: str) -> dict[str, Any]:
+    """
+    Elimina el borrador de regla asociado a una sesión.
+
+    Args:
+        user_id (str): Identificador del usuario.
+        session_id (str): Identificador de la sesión.
+
+    Returns:
+        dict[str, Any]: Confirmación de borrado del borrador.
+    """
+    clear_rule_draft(session_id)
+    return {"session_id": session_id, "user_id": user_id, "cleared": True}
+
 
 ToolFn = Callable[..., dict[str, Any]]
 
@@ -20,6 +68,12 @@ def _tool_registry() -> dict[str, Any]:
     """
 
     return {
+        # Tools Borradores de Reglas
+        "get_rule_draft": tool_get_rule_draft,
+        "update_rule_draft": tool_update_rule_draft,
+        "clear_rule_draft": tool_clear_rule_draft,
+
+        # Tools CU-03
         "list_domains": cu03_tools.list_domains,
         "validate_alert_rule_dsl": cu03_tools.validate_alert_rule_dsl,
         "resolve_scope": cu03_tools.resolve_scope,
@@ -27,6 +81,7 @@ def _tool_registry() -> dict[str, Any]:
         "upsert_alert_rule": cu03_tools.upsert_alert_rule,
         "set_rule_targets": cu03_tools.set_rule_targets,
         "register_rule_schedule": cu03_tools.register_rule_schedule,
+        
     }
 
 
@@ -36,6 +91,43 @@ def _tools_schema() -> list[dict[str, Any]]:
     """
 
     return [
+        {
+            "type": "function",
+            "name": "get_rule_draft",
+            "description": "Obtiene el borrador (draft) actual de CU-03 para esta session_id.",
+            "parameters": {
+                "type": "object",
+                "properties": {"user_id": {"type": "string"}, "session_id": {"type": "string"}},
+                "required": ["user_id", "session_id"],
+                "additionalProperties": False
+            },
+        },
+        {
+            "type": "function",
+            "name": "update_rule_draft",
+            "description": "Actualiza/mergea el borrador CU-03 con un patch (solo campos detectados del usuario).",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "user_id": {"type": "string"},
+                    "session_id": {"type": "string"},
+                    "patch": {"type": "object"}
+                },
+                "required": ["user_id", "session_id", "patch"],
+                "additionalProperties": False
+            },
+        },
+        {
+            "type": "function",
+            "name": "clear_rule_draft",
+            "description": "Elimina el draft CU-03 al finalizar (cuando la regla ya se creó).",
+            "parameters": {
+                "type": "object",
+                "properties": {"user_id": {"type": "string"}, "session_id": {"type": "string"}},
+                "required": ["user_id", "session_id"],
+                "additionalProperties": False
+            },
+        },
         {
             "type": "function",
             "name": "list_domains",
@@ -143,13 +235,25 @@ def _tools_schema() -> list[dict[str, Any]]:
 
 # Instrucciones del sistema para guiar al modelo en la configuración de reglas CU-03.
 ORCH_INSTRUCTIONS = """Eres el agente orquestador de un chatbot detector de phishing.
-Tarea principal: configurar alertas CU-03 en lenguaje natural.
-Reglas:
-- Si falta información crítica (scope/canales/frecuencia/umbrales), pregunta al usuario, NO inventes.
-- Antes de persistir, SIEMPRE llama validate_alert_rule_dsl.
-- Para aplicar la regla a dominios/tags/all, usa resolve_scope y set_rule_targets.
-- Registra el schedule con register_rule_schedule.
-- Devuelve una confirmación clara al usuario: qué regla, alcance, frecuencia, canal y cooldown.
+Tu objetivo es convertir una conversación en una regla valida y persistida.
+
+Estado:
+- SIEMPRE usa get_rule_draft(user_id, session_id) al inicio de cada petición.
+- SIEMPRE interpreta el mensaje del usuario y llama update_rule_draft con SOLO los campos que el usuario haya aportado (patch parcial).
+- NUNCA preguntes por campos que ya estén en el draft.
+- Si el draft está completo, construye un AlertRuleDSL completo y llama:
+  validate_alert_rule_dsl -> resolve_scope -> upsert_alert_rule -> set_rule_targets -> register_rule_schedule.
+- Tras crear correctamente, llama clear_rule_draft.
+
+Campos esperados en el draft (MVP):
+- rule_type: "expiry" o "risk"
+- condition: p.ej {"days_before_expiry": 5} (para expiry)
+- scope: {"target_type":"domains","domain_ids":[...]} o {"target_type":"domains","domains":["acme.es"]} o {"target_type":"all"}
+- channels: [{"kind":"email","to":"user@dominio.com"}]
+- schedule: {"frecuency":"daily"|"weekly"|"hourly", "at_time":"09:00", "timezone":"Europe/Madrid"} (mínimo frecuency)
+- cooldown: {"seconds": 0} o {"seconds": 86400}
+
+Si faltan datos, pregunta SOLO por los que faltan.
 """
 
 _DB_TOOLS = {
@@ -161,12 +265,13 @@ _DB_TOOLS = {
     "register_rule_schedule",
 }
 
-def run_orchestrator(user_id: str, message: str, model: str) -> dict[str, Any]:
+def run_orchestrator(user_id: str, session_id: str, message: str, model: str) -> dict[str, Any]:
     """
     Ejecuta el orquestador LLM, resolviendo tool calls en bucle y devolviendo la respuesta final del LLM
 
     Args:
         user_id (str): Identificador del usuario que realiza la petición.
+        session_id: Identificador de la sesión
         message (str): Mensaje en lenguaje natural del usuario.
         model (str): Modelo de OpenAI a utilizar.
 
@@ -177,7 +282,7 @@ def run_orchestrator(user_id: str, message: str, model: str) -> dict[str, Any]:
     tools = _tools_schema()
     registry = _tool_registry()
 
-    input_list: list[dict[str, Any]] = [{"role": "user", "content": f"[user_id={user_id}] {message}"}]
+    input_list: list[dict[str, Any]] = [{"role": "user", "content": f"[user_id={user_id} session_id={session_id}] {message}"}]
 
     log_event(
         logger,
