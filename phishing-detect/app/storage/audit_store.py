@@ -7,9 +7,12 @@ import threading
 import time
 from typing import Any
 
+# Esta base de datos se guarda en SQLite para separarla de PostgreSQL, pudiendo registrar los fallos aunque falle el sistema
+# Se usa getenv y no settings para que registre los eventos antes de que cargue settings.py
 AUDIT_DB_PATH = os.getenv("AUDIT_DB_PATH", "./audit.db")
 AUDIT_ENABLED = os.getenv("AUDIT_ENABLED", "true").lower() in ("1", "true", "yes", "y")
 
+# bloqueo de sincronizacion para que varios hilos accedan al mismo tiempo a la base de datos
 _lock = threading.Lock()
 
 DDL = """
@@ -28,13 +31,21 @@ CREATE INDEX IF NOT EXISTS idx_audit_event ON audit_log(event);
 CREATE INDEX IF NOT EXISTS idx_audit_ts ON audit_log(ts_utc);
 """
 
+
 def _connect() -> sqlite3.Connection:
+    """Crea y devuelve una conexión a la base de datos SQLite de auditoría."""
+
     conn = sqlite3.connect(AUDIT_DB_PATH, check_same_thread=False)
     conn.execute("PRAGMA journal_mode=WAL;") # Activa el modo de escritura eficiente
     conn.execute("PRAGMA synchronous=NORMAL;") # Reduce las esperas de escritura en disco para ganar rendimiento
     return conn
 
+
 def init_audit_db() -> None:
+    """
+    Inicializa la base de datos de auditoría creando las tablas e índices si no existen.
+    """
+
     if not AUDIT_ENABLED:
         return
     with _lock:
@@ -56,6 +67,17 @@ def write_audit_event(
     user_id: str | None = None,
     session_id: str | None = None,
 ) -> None:
+    """
+    Registra un evento de auditoría asociado a un trace_id.
+
+    Args:
+        trace_id (str): Identificador de traza de la petición.
+        event (str): Nombre del evento.
+        payload (dict[str, Any]): Datos adicionales del evento.
+        user_id (str | None): Identificador del usuario.
+        session_id (str | None): Identificador de la sesión.
+    """
+
     if not AUDIT_ENABLED:
         return
 
@@ -75,6 +97,17 @@ def write_audit_event(
             conn.close()
 
 def read_audit_trace(trace_id: str, limit: int = 200) -> list[dict[str, Any]]:
+    """
+    Recupera los eventos de auditoría asociados a un trace_id.
+
+    Args:
+        trace_id (str): Identificador de traza.
+        limit (int): Número máximo de registros a devolver (por defecto 200).
+
+    Returns:
+        list[dict[str, Any]]: Lista de eventos de auditoría ordenados cronológicamente.
+    """
+
     if not AUDIT_ENABLED:
         return []
 

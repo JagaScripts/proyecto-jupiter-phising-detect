@@ -91,7 +91,7 @@ def setup_logging(app_name: str = "phishing-chat") -> None:
     # Ajustes para verbosidad de librerías
     logging.getLogger("uvicorn").setLevel(level)
     logging.getLogger("uvicorn.error").setLevel(level)
-    logging.getLogger("uvicorn.access").setLevel(logging.WARNING)  # accesos los logueamos nosotros
+    logging.getLogger("uvicorn.access").setLevel(logging.WARNING)
     logging.getLogger("httpx").setLevel(logging.WARNING)
     logging.getLogger("openai").setLevel(logging.INFO)
 

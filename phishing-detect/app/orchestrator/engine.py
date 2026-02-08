@@ -14,6 +14,11 @@ ToolFn = Callable[..., dict[str, Any]]
 
 
 def _tool_registry() -> dict[str, Any]:
+    """
+    Devuelve el registro nombre->función de las tools disponibles para el orquestador.
+    Cuando definamos una tool devemos añadirla a la variable _DB_TOOLS
+    """
+
     return {
         "list_domains": cu03_tools.list_domains,
         "validate_alert_rule_dsl": cu03_tools.validate_alert_rule_dsl,
@@ -26,6 +31,10 @@ def _tool_registry() -> dict[str, Any]:
 
 
 def _tools_schema() -> list[dict[str, Any]]:
+    """
+    Define el esquema JSON de tools (function calling) que se expone al modelo.
+    """
+
     return [
         {
             "type": "function",
@@ -132,7 +141,7 @@ def _tools_schema() -> list[dict[str, Any]]:
         },
     ]
 
-
+# Instrucciones del sistema para guiar al modelo en la configuración de reglas CU-03.
 ORCH_INSTRUCTIONS = """Eres el agente orquestador de un chatbot detector de phishing.
 Tarea principal: configurar alertas CU-03 en lenguaje natural.
 Reglas:
@@ -153,6 +162,17 @@ _DB_TOOLS = {
 }
 
 def run_orchestrator(user_id: str, message: str, model: str) -> dict[str, Any]:
+    """
+    Ejecuta el orquestador LLM, resolviendo tool calls en bucle y devolviendo la respuesta final del LLM
+
+    Args:
+        user_id (str): Identificador del usuario que realiza la petición.
+        message (str): Mensaje en lenguaje natural del usuario.
+        model (str): Modelo de OpenAI a utilizar.
+
+    Returns:
+        dict[str, Any]: Resultado con el mensaje final para el usuario y el id bruto de la respuesta.
+    """
     client = OpenAI(api_key=settings.openai_api_key, timeout=30.0, max_retries=1)
     tools = _tools_schema()
     registry = _tool_registry()

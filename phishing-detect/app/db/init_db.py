@@ -1,6 +1,6 @@
 from __future__ import annotations
 from app.db.session import engine, Base
-from app.db import models  # noqa: F401  (importa modelos para que Base los registre)
+from app.db import models
 from app.db.session import SessionLocal
 from sqlalchemy import select
 from sqlalchemy.orm import Session

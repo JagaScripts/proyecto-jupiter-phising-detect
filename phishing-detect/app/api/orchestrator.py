@@ -24,6 +24,7 @@ class OrchestrateResponse(BaseModel):
     response_id: str | None = None
 
 
+# Endpoint interno que se usará por microservicios, etc.
 @router.post("/orchestrate", response_model=OrchestrateResponse)
 def orchestrate(req: OrchestrateRequest) -> OrchestrateResponse:
     out = run_orchestrator(user_id=req.user_id, message=req.message, model=settings.openai_model)

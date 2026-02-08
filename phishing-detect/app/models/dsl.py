@@ -2,15 +2,16 @@ from __future__ import annotations
 from typing import Literal, Union
 from pydantic import BaseModel, Field
 
-# Alcance/objetivos
+
 class Scope(BaseModel):
+    """ Define el alcance de la regla: todos los dominios, dominios específicos o por etiquetas. """
     targets_type: Literal["all", "domains", "tags"]
     domain_ids: list[str] | None = None
     tags: list[str] | None = None
 
 
-# Condiciones
 class RiskCondition(BaseModel):
+    """ Condición basada en nivel, puntuación o variación de riesgo dentro de una ventana de tiempo. """
     kind: Literal["risk"] = "risk"
     risk_level_gte: Literal["low", "medium", "high", "critical"] | None = None
     risk_score_gte: int | None = Field(default=None, ge=0, le=100)
@@ -19,35 +20,43 @@ class RiskCondition(BaseModel):
 
 
 class ExpiryCondition(BaseModel):
+    """ Condición basada en la proximidad a la fecha de expiración del dominio. """
     kind: Literal["expiry"] = "expiry"
     days_before: int = Field(..., ge=1, le=3650)
     only_if_auto_renew_off: bool = False
 
+
+# tipo de condicion riesgo y/o condición
 Condition = Union[RiskCondition, ExpiryCondition]
 
 
-# Frecuencia
 class Schedule(BaseModel):
+    """ Define la frecuencia y el horario de ejecución de la regla. """
+
     frecuency: Literal["hourly", "daily", "weekly"]
     at_time: str | None = Field(default=None, description="HH:MM (requerido para daily/weekly)")
     timezone: str = "Europe/Madrid"
     days_of_week: list[Literal["lunes", "martes", "miercoles", "jueves", "viernes", "sabado", "domingo"]] | None = None
 
 
-# Canal de comunicacion
 class Channel(BaseModel):
+    """ Canal de notificación y configuración de envío. """
+
     king: Literal["email", "webhook", "in_app"]
     to: str | None = None
     template: Literal["default", "executive", "technical"] = "default"
 
-# Tiempo espera entre comunicaciones
+
 class Cooldown(BaseModel):
+    """ Tiempo mínimo de espera entre notificaciones para evitar alertas repetidas. """
+
     hours: int = Field(default=24, ge=0, le=720)
     per_domain: bool = True
 
 
-# Reglas
 class AlertRuleDSL(BaseModel):
+    """ Definición completa de una regla de alerta en formato DSL. """
+    
     dsl_version: str = Field(default="v1.0")
     name: str = Field(..., min_length=3, max_length=80)
     description: str | None = Field(default=None, max_length=240)

@@ -7,12 +7,25 @@ from sqlalchemy.orm import Session
 from app.models.dsl import AlertRuleDSL
 from app.db.models import Domain, AlertRule, AlertRuleTarget, ScheduleJob
 
+
 def list_domains(
         user_id: str,
         query: str | None = None,
         *,
         db: Session
 ) -> dict[str, Any]:
+    """
+    Lista los dominios de un usuario, opcionalmente filtrando por texto.
+
+    Args:
+        user_id (str): Identificador del usuario.
+        query (str | None): Filtro de búsqueda por nombre de dominio.
+        db (Session): Sesión de base de datos.
+
+    Returns:
+        dict[str, Any]: Dominios del usuario con id, nombre, tags y estado.
+    """
+
     sentencia = select(Domain).where(Domain.user_id == user_id)
     
     if query:
@@ -37,6 +50,17 @@ def validate_alert_rule_dsl(
         user_id: str,
         rule_dsl: dict[str, Any]
 ) -> dict[str, Any]:
+    """
+    Valida y normaliza una regla en formato DSL (Domain-Specific Language).
+
+    Args:
+        user_id (str): Identificador del usuario.
+        rule_dsl (dict[str, Any]): Regla en formato DSL.
+
+    Returns:
+        dict[str, Any]: Resultado de validación (valid/issues) y regla normalizada si aplica.
+    """
+
     issues: list[dict[str, Any]] = []
 
     try:
@@ -82,6 +106,18 @@ def resolve_scope(
         *,
         db: Session,
 ) -> dict[str, Any]:
+    """
+    Resuelve el alcance (scope) a una lista concreta de domain_ids.
+
+    Args:
+        user_id (str): Identificador del usuario.
+        scope (dict[str, Any]): Scope declarado (all/domains/tags).
+        db (Session): Sesión de base de datos.
+
+    Returns:
+        dict[str, Any]: Scope resuelto con domain_ids y estadísticas básicas.
+    """
+
     target_type = scope.get("target_type")
 
     domains = list_domains(user_id, db=db)["domains"]
@@ -127,6 +163,19 @@ def preview_rule_effect(
         *,
         db: Session,
 ) -> dict[str, Any]:
+    """
+    Previsualiza el impacto de una regla (estimación simple basada en el alcance).
+
+    Args:
+        user_id (str): Identificador del usuario.
+        rule_dsl (dict[str, Any]): Regla en formato DSL.
+        resolved_scope (dict[str, Any] | None): Scope ya resuelto (opcional).
+        db (Session): Sesión de base de datos.
+
+    Returns:
+        dict[str, Any]: Métricas de impacto y notas de previsualización.
+    """
+
     # estimación simple (no hay domain_state real todavía)
     if not resolved_scope:
         resolved_scope = resolve_scope(user_id, rule_dsl.get("scope", {"target_type": "all"}), db=db).get("resolved_scope", {})
@@ -151,6 +200,20 @@ def upsert_alert_rule(
         *,
         db: Session,
 ) -> dict[str, Any]:
+    """
+    Crea una regla de alerta en base de datos a partir del DSL (MVP: create).
+
+    Args:
+        user_id (str): Identificador del usuario.
+        rule_dsl (dict[str, Any]): Regla en formato DSL.
+        mode (str): Modo de operación (create/update/upsert).
+        rule_id (str | None): Identificador de regla para update/upsert (si aplica).
+        db (Session): Sesión de base de datos.
+
+    Returns:
+        dict[str, Any]: Datos de la regla persistida (rule_id, versión y flags).
+    """
+
     new_id = f"rule_{uuid.uuid4().hex[:8]}"
     name = rule_dsl.get("name", "Regla")
     rule_type = rule_dsl.get("rule_type", "risk")
@@ -195,6 +258,19 @@ def set_rule_targets(
         *,
         db: Session,
 ) -> dict[str, Any]:
+    """
+    Asocia una regla a sus dominios objetivo, reemplazando los targets previos.
+
+    Args:
+        user_id (str): Identificador del usuario.
+        rule_id (str): Identificador de la regla.
+        resolved_scope (dict[str, Any]): Scope resuelto con domain_ids.
+        db (Session): Sesión de base de datos.
+
+    Returns:
+        dict[str, Any]: Resumen de targets asociados.
+    """
+
     domain_ids = resolved_scope.get("domain_ids", [])
 
     # limpia targets previos
@@ -215,6 +291,19 @@ def register_rule_schedule(
         *,
         db: Session,
 ) -> dict[str, Any]:
+    """
+    Registra un job de scheduling para una regla.
+
+    Args:
+        user_id (str): Identificador del usuario.
+        rule_id (str): Identificador de la regla.
+        schedule (dict[str, Any]): Configuración de schedule (frecuencia/horario/etc.).
+        db (Session): Sesión de base de datos.
+
+    Returns:
+        dict[str, Any]: Datos del job creado (job_id y próxima ejecución).
+    """
+
     job_id = f"job_{uuid.uuid4().hex[:8]}"
 
     row = ScheduleJob(

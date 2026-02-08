@@ -5,6 +5,8 @@ from app.core.settings import settings
 
 
 class Base(DeclarativeBase):
+    """ Clase base para todos los modelos ORM de SQLAlchemy. """
+
     pass
 
 
@@ -14,4 +16,5 @@ engine = create_engine(
     pool_pre_ping=True,
 )
 
+# Fábrica de sesiones de base de datos para gestionar transacciones.
 SessionLocal = sessionmaker(bind=engine, autoflush=False, autocommit=False)

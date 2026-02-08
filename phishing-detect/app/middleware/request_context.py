@@ -11,10 +11,17 @@ logger = get_logger("middleware.request")
 
 async def request_context_middleware(request: Request, call_next: Callable) -> Response:
     """
-    - Genera trace_id por request (o reutiliza X-Trace-Id si viene)
-    - Intenta extraer user_id y session_id del body si es JSON (sin romper si falla)
-    - Loguea request start/end con duración y status
+    Middleware que asigna un trace_id por petición, extrae user_id/session_id si están presentes,
+    registra logs y eventos de auditoría, y mide la duración de la solicitud.
+
+    Args:
+        request (Request): Objeto de la petición HTTP entrante.
+        call_next (Callable): Función que continúa el procesamiento de la petición.
+
+    Returns:
+        Response: Respuesta HTTP generada por la aplicación.
     """
+
     trace_id = request.headers.get("X-Trace-Id") or f"tr_{uuid.uuid4().hex[:12]}"
     trace_id_ctx.set(trace_id)
 

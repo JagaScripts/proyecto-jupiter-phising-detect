@@ -20,8 +20,18 @@ class ChatResponse(BaseModel):
     assistant_message: str
 
 
+# Endpoint para interactuar con el chat
 @router.post("/chat", response_model=ChatResponse)
 def chat(req: ChatRequest) -> ChatResponse:
+    """
+    Funcion para interactuar con el agente orquestador
+
+    Args:
+        req: Elemento de la clase ChatRequest que lleva el user_id, el mensaje del usuario y el session_id
+
+    Return:
+        Devuelve la contestación del agente orquestador, el session_id y trace_id
+    """
     trace_id = "trace_dummy_001"
     session_id = req.session_id or "sess_dummy_001"
 

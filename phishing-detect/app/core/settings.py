@@ -3,6 +3,11 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class Settings(BaseSettings):
+    """
+    Carga y valida la configuración de la app desde variables de entorno.
+    Define defaults y un punto único de acceso a los settings.
+    """
+
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 
     # OpenAI

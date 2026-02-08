@@ -1,5 +1,5 @@
 from __future__ import annotations
-from datetime import datetime
+from datetime import datetime, timezone
 from sqlalchemy import String, Integer, Boolean, DateTime, ForeignKey, UniqueConstraint, Index
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column, relationship
@@ -7,13 +7,15 @@ from app.db.session import Base
 
 
 class Domain(Base):
+    """ Tabla/Modelo de dominio monitorizado por un usuario, con estado y etiquetas de clasificación. """
+
     __tablename__ = "domains"
 
-    id: Mapped[str] = mapped_column(String(80), primary_key=True)        # dom_101
+    id: Mapped[str] = mapped_column(String(80), primary_key=True)
     user_id: Mapped[str] = mapped_column(String(80), index=True)
     domain_name: Mapped[str] = mapped_column(String(255), index=True)
-    status: Mapped[str] = mapped_column(String(20), default="active")    # active/inactive
-    tags: Mapped[list[str]] = mapped_column(JSONB, default=list)         # ["marca","es"]
+    status: Mapped[str] = mapped_column(String(20), default="active")
+    tags: Mapped[list[str]] = mapped_column(JSONB, default=list)
 
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
 
@@ -24,6 +26,8 @@ class Domain(Base):
 
 
 class AlertRule(Base):
+    """Regla de alerta configurable (lógica + schedule) asociada a un usuario y a un conjunto de dominios objetivo."""
+
     __tablename__ = "alert_rules"
 
     id: Mapped[str] = mapped_column(String(80), primary_key=True)        
@@ -35,11 +39,11 @@ class AlertRule(Base):
     is_enabled: Mapped[bool] = mapped_column(Boolean, default=True)
 
     version: Mapped[int] = mapped_column(Integer, default=1)
-    logic_json: Mapped[dict] = mapped_column(JSONB)                     # condición, canales, cooldown, etc.
-    schedule_json: Mapped[dict] = mapped_column(JSONB)                  # frequency/at_time/timezone/days_of_week
+    logic_json: Mapped[dict] = mapped_column(JSONB)
+    schedule_json: Mapped[dict] = mapped_column(JSONB)
 
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
-    updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.now(timezone.utc))
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.now(timezone.utc), onupdate=datetime.now(timezone.utc))
 
     targets: Mapped[list["AlertRuleTarget"]] = relationship(
         back_populates="rule", cascade="all, delete-orphan"
@@ -52,6 +56,8 @@ class AlertRule(Base):
 
 
 class AlertRuleTarget(Base):
+    """ Relación entre una regla de alerta y los dominios a los que aplica. """
+
     __tablename__ = "alert_rule_targets"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
@@ -66,14 +72,16 @@ class AlertRuleTarget(Base):
 
 
 class ScheduleJob(Base):
+    """ Job de ejecución programada de una regla, con estado y próxima ejecución. """
+
     __tablename__ = "schedules"
 
-    id: Mapped[str] = mapped_column(String(80), primary_key=True)        # job_xxx
+    id: Mapped[str] = mapped_column(String(80), primary_key=True)
     user_id: Mapped[str] = mapped_column(String(80), index=True)
     rule_id: Mapped[str] = mapped_column(String(80), ForeignKey("alert_rules.id", ondelete="CASCADE"), index=True)
 
-    schedule_json: Mapped[dict] = mapped_column(JSONB)                  # copia del schedule del DSL
-    status: Mapped[str] = mapped_column(String(20), default="active")   # active/paused
+    schedule_json: Mapped[dict] = mapped_column(JSONB)
+    status: Mapped[str] = mapped_column(String(20), default="active")
 
     next_run_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
