@@ -3,8 +3,9 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Phishing Chat MVP</title>
+  <title>Phishing-Detect Chat</title>
   <style>
+    * {box-sizing: border-box; }
     :root { font-family: ui-sans-serif, system-ui, Arial; }
     body { margin: 0; background: #0b1220; color: #e8eefc; }
     .wrap { max-width: 980px; margin: 0 auto; padding: 16px; }
@@ -35,7 +36,7 @@
 
 <body>
   <div class="wrap">
-    <h2 style="margin: 8px 0 12px;">Phishing Chat MVP (CU-03)</h2>
+    <h2 style="margin: 8px 0 12px;">Phishing-Detect Chat MVP (CU-03)</h2>
 
     <div class="card" style="margin-bottom: 12px;">
       <div class="row">
@@ -72,6 +73,7 @@
       <div class="row" style="margin-top: 10px;">
         <button id="sendBtn">Enviar</button>
         <button id="clearBtn">Limpiar</button>
+        <button id="newChatBtn">Nueva conversación</button>
         <span class="small" id="hint"></span>
       </div>
     </div>
@@ -87,6 +89,7 @@
     const msgEl = document.getElementById("message");
     const sendBtn = document.getElementById("sendBtn");
     const clearBtn = document.getElementById("clearBtn");
+    const newChatBtn = document.getElementById("newChatBtn");
     const statusPill = document.getElementById("statusPill");
     const traceIdEl = document.getElementById("traceId");
     const openAuditBtn = document.getElementById("openAuditBtn");
@@ -131,6 +134,26 @@
       setStatus("Listo");
       hintEl.textContent = "";
     });
+
+    newChatBtn.addEventListener("click", () => {
+      // 1) Borrar estado conversacional
+      localStorage.removeItem("session_id");
+      window.__sid = null;
+
+      // 2) Limpiar UI
+      chatEl.innerHTML = "";
+      msgEl.value = "";
+      traceIdEl.textContent = "-";
+      openAuditBtn.disabled = true;
+  
+      // 3) Feedback visual
+      setStatus("Nueva conversación");
+      hintEl.textContent = "Se ha iniciado una nueva conversación.";
+  
+      // 4) Mensaje inicial opcional
+      addMessage("bot", "Nueva conversación iniciada. Puedes crear una nueva alerta.");
+    });
+
 
     async function sendMessage() {
       const user_id = (userIdEl.value || "").trim();
