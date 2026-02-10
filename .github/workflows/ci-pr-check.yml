@@ -1,0 +1,47 @@
+name: "PR Gatekeeper"
+
+on:
+  pull_request:
+    branches: ["main", "develop"]
+    paths: ["services/**", "shared/**", ".github/**"]
+
+jobs:
+  test:
+    name: "Test affected services"
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # Necessary for change detection
+
+      - name: Filter Changed Paths
+        uses: dorny/paths-filter@v2
+        id: changes
+        with:
+          filters: |
+            orchestrator_service: services/orchestrator-service/**
+            reputation_service: services/reputation-service/**
+            shared: services/shared/**
+
+      - name: Setup Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: Test Orchestrator Service
+        if: steps.changes.outputs.orchestrator_service == 'true' || steps.changes.outputs.shared == 'true'
+        working-directory: services/orchestrator-service
+        run: |
+          pip install pytest -r requirements.txt
+          # Hack: install shared lib locally for tests if not using full docker
+          # Better approach: run tests inside docker or use PYTHONPATH
+          export PYTHONPATH=$PYTHONPATH:../../
+          pytest tests/
+
+      # Add more steps for other services...
