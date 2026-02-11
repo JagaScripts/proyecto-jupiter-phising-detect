@@ -28,6 +28,7 @@ async def request_context_middleware(request: Request, call_next: Callable) -> R
     # Defaults de contexto
     user_id_ctx.set("-")
     session_id_ctx.set("-")
+    
 
     # Intento no intrusivo de extraer user_id/session_id si el body es JSON
     try:

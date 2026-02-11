@@ -96,12 +96,12 @@ def write_audit_event(
         finally:
             conn.close()
 
-def read_audit_trace(trace_id: str, limit: int = 200) -> list[dict[str, Any]]:
+def read_audit_session(session_id: str, limit: int = 200) -> list[dict[str, Any]]:
     """
-    Recupera los eventos de auditoría asociados a un trace_id.
+    Recupera los eventos de auditoría asociados a un session_id.
 
     Args:
-        trace_id (str): Identificador de traza.
+        session_id (str): Identificador de sesion.
         limit (int): Número máximo de registros a devolver (por defecto 200).
 
     Returns:
@@ -116,8 +116,8 @@ def read_audit_trace(trace_id: str, limit: int = 200) -> list[dict[str, Any]]:
         try:
             cur = conn.execute(
                 "SELECT ts_utc, trace_id, user_id, session_id, event, payload_json "
-                "FROM audit_log WHERE trace_id = ? ORDER BY id ASC LIMIT ?",
-                (trace_id, limit),
+                "FROM audit_log WHERE session_id = ? ORDER BY id ASC LIMIT ?",
+                (session_id, limit),
             )
             out: list[dict[str, Any]] = []
             for ts_utc, tr, user_id, session_id, event, payload_json in cur.fetchall():

@@ -56,8 +56,8 @@
       </div>
 
       <div class="meta">
-        <span>Último trace:</span>
-        <span class="pill" id="traceId">-</span>
+        <span>Sesión ID:</span>
+        <span class="pill" id="sessionId">-</span>
         <button id="openAuditBtn" disabled>Abrir audit</button>
         <span class="small">Tip: Enter = enviar · Shift+Enter = nueva línea</span>
       </div>
@@ -91,11 +91,11 @@
     const clearBtn = document.getElementById("clearBtn");
     const newChatBtn = document.getElementById("newChatBtn");
     const statusPill = document.getElementById("statusPill");
-    const traceIdEl = document.getElementById("traceId");
+    const sessionIdEl = document.getElementById("sessionId");
     const openAuditBtn = document.getElementById("openAuditBtn");
     const hintEl = document.getElementById("hint");
 
-    let lastTraceId = null;
+    let lastSessionId = window.__sid || null;
 
     function setStatus(text, isError=false) {
       statusPill.textContent = text;
@@ -116,21 +116,21 @@
       chatEl.scrollTop = chatEl.scrollHeight;
     }
 
-    function setTrace(traceId) {
-      lastTraceId = traceId;
-      traceIdEl.textContent = traceId || "-";
-      openAuditBtn.disabled = !traceId;
+    function setSession(session_id) {
+      lastSessionId = session_id || null;
+      sessionIdEl.textContent = session_id || "-";
+      openAuditBtn.disabled = !session_id;
     }
 
     openAuditBtn.addEventListener("click", () => {
-      if (!lastTraceId) return;
-      window.open(`/v1/audit/${encodeURIComponent(lastTraceId)}`, "_blank");
+      if (!lastSessionId) return;
+      window.open(`/v1/audit/session/${encodeURIComponent(lastSessionId)}`, "_blank");
     });
 
     clearBtn.addEventListener("click", () => {
       chatEl.innerHTML = "";
       msgEl.value = "";
-      setTrace(null);
+      setSession(window.__sid);
       setStatus("Listo");
       hintEl.textContent = "";
     });
@@ -143,8 +143,7 @@
       // 2) Limpiar UI
       chatEl.innerHTML = "";
       msgEl.value = "";
-      traceIdEl.textContent = "-";
-      openAuditBtn.disabled = true;
+      setSession(null);
   
       // 3) Feedback visual
       setStatus("Nueva conversación");
@@ -172,7 +171,6 @@
 
       addMessage("user", message);
       msgEl.value = "";
-      hintEl.textContent = "";
 
       sendBtn.disabled = true;
       setStatus("Enviando...");
@@ -184,9 +182,6 @@
           body: JSON.stringify({ user_id, session_id, message }),
         });
 
-        const traceId = res.headers.get("X-Trace-Id");
-        setTrace(traceId);
-
         const data = await res.json().catch(() => ({}));
 
         // Guardar session_id devuelto por backend
@@ -194,6 +189,8 @@
             window.__sid = data.session_id;
             localStorage.setItem("session_id", data.session_id);
         }
+
+        setSession(window.__sid);
 
         if (!res.ok) {
           const errMsg = data?.detail ? JSON.stringify(data.detail) : (data?.error || `HTTP ${res.status}`);
@@ -213,7 +210,7 @@
         addMessage("bot", text);
         setStatus("OK");
       } catch (e) {
-        addMessage("bot", "ERROR: no se pudo conectar con el servidor.");
+        addMessage("bot", "ERROR (frontend): ${String(e)}");
         setStatus("Error de red", true);
       } finally {
         sendBtn.disabled = false;

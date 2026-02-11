@@ -1,7 +1,7 @@
 from __future__ import annotations
-from fastapi import APIRouter
+from fastapi import APIRouter, Query
 from pydantic import BaseModel, Field
-from app.storage.audit_store import read_audit_trace
+from app.storage.audit_store import read_audit_session
 
 router = APIRouter()
 
@@ -16,20 +16,19 @@ class AuditItem(BaseModel):
 
 class AuditResponse(BaseModel):
     """ Campos de respuesta cuando se requiere un elemento """
-    trace_id: str
+    session_id: str
     items: list[dict] = Field(default_factory=list)
 
-@router.get("/audit/{trace_id}", response_model=AuditResponse)
-def get_audit(trace_id: str) -> AuditResponse:
+@router.get("/audit/session/{session_id}", response_model=AuditResponse)
+def get_audit_by_session(
+    session_id: str,
+    limit: int = Query(500, ge=1, le=2000),
+) -> AuditResponse:
     """
-    Obtiene los eventos relacionados con una petición (trace_id)
-
-    Args:
-        trace_id: Identificador creado al realizar la petición
-
-    Return:
-        Elementos relacionados con la petición
+    Obtiene el histórico completo de auditoría de una conversación (session_id).
     """
-    items = read_audit_trace(trace_id=trace_id, limit=500)
-    
-    return AuditResponse(trace_id=trace_id, items=items)
+    items = read_audit_session(session_id=session_id, limit=limit)
+    return AuditResponse(
+        session_id=f"session:{session_id}",
+        items=items,
+    )
