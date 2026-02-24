@@ -1,0 +1,12 @@
+[submodule "services/orchestrator-service"]
+	path = services/orchestrator-service
+	url = https://github.com/JagaScripts/srv-orchestrator.git
+[submodule "services/reputation-service"]
+	path = services/reputation-service
+	url = https://github.com/JagaScripts/srv-reputation.git
+[submodule "services/knowledge-service"]
+	path = services/knowledge-service
+	url = https://github.com/JagaScripts/srv-knowledge-rag.git
+[submodule "services/shared"]
+	path = services/shared
+	url = https://github.com/JagaScripts/lib-shared-kernel.git
