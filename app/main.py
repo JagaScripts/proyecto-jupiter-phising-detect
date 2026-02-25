@@ -1,23 +1,42 @@
-import asyncio
 import logging
+import asyncio
 import schemas, crud
 from fastapi import FastAPI, HTTPException, Depends
 from database import SessionLocal, engine
 from models import DecBase, EstadoDominio
 from fastapi.concurrency import run_in_threadpool
 from servicios_ext import tiene_mx, obtiene_ip, fuentes_reputacion
-from logging_config import setup_logging
 
-setup_logging()
+# Iniciamos el servicio de logs
 logger = logging.getLogger("dominio")
+logger.setLevel(logging.DEBUG)
 
+# Se configura el servicio de logs que se muestran por consola
+console_handler = logging.StreamHandler()
+console_handler.setLevel(logging.DEBUG)
+console_format = logging.Formatter('[%(asctime)s] %(levelname)s - %(message)s')
+console_handler.setFormatter(console_format)
+logger.addHandler(console_handler)
+
+# Se configura el servicio de logs para almacenar en un archivo todos los logs desde DEBUG a CRITICAL 
+debug_file_handler = logging.FileHandler("debug.log", encoding="utf-8")
+debug_file_handler.setLevel(logging.DEBUG)
+debug_file_handler.setFormatter(console_format)
+logger.addHandler(debug_file_handler)
+
+# Se configura el servicio de logs para almacenar en un archivo solo los logs WARNING, ERROR Y CRITICAL 
+warning_file_handler = logging.FileHandler("warning.log", encoding="utf-8")
+warning_file_handler.setLevel(logging.WARNING)
+warning_file_handler.setFormatter(console_format)
+logger.addHandler(warning_file_handler)
+
+# Se inicia FASTAPI
 app = FastAPI(title="Dominios")
 logger.info("FastAPI inicializada")
 
-@app.on_event("startup")
-def startup_event():
-    DecBase.metadata.create_all(bind=engine)
-    logger.debug("Se crea la Base de Datos si no existe")
+# Se crea la base de datos
+DecBase.metadata.create_all(bind=engine)
+logger.debug("Se crea la Base de Datos si no existe")
 
 # Funcion que inicia la sesiona a la base de datos creada en el archivo database.py
 def get_db():

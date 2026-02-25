@@ -1,3 +1,10 @@
+import requests
+
+# URL base, configurada correctamente en el puerto 8080
+BASE_URL_API = "http://127.0.0.1:8080"
+
+# --- PRUEBAS DE CREACIÓN (POST) ---
+
 def test_01_crea_dominio_1():
     """Crea dominio 1: con score de reputación en VT."""
     print("\n" + "*"*30, "CREA DOMINIO 1", "*"*30)

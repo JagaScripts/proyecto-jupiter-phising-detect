@@ -1,8 +1,8 @@
 import dns.resolver
 import requests
+import os
 import logging
 from dotenv import load_dotenv
-from config import get_api_timeout, get_vt_api_key, get_urlscan_api_key
 
 logger = logging.getLogger("dominio")
 load_dotenv() # Cargamos las variable de entorno
@@ -48,7 +48,7 @@ def obtiene_ip(dominio: str) -> str:
 def _virustotal(dominio: str) -> dict:
 	logger.debug(f"[+] Se inicia la comprobacion del score en VirusTotal del dominio {dominio}")
 	URL_Dominio = f"https://www.virustotal.com/api/v3/domains/{dominio}"
-	api_key = get_vt_api_key() # Obtenemos la API Key que está almacenada en el archivo .env
+	api_key = os.getenv("API_KEY_VT") # Obtenemos la API Key que está almacenada en el archivo .env
 	score = {"virustotal": 0}
 	# Verificamos que tenemos la KEY, sino asignamos el score por defecto que es 0
 	if not api_key:
@@ -57,13 +57,9 @@ def _virustotal(dominio: str) -> dict:
 	# Configuramos las cabeceras como indica la documentación de la API
 	headers_vt = {"accept": "application/json", "x-apikey": api_key}
 	# Hacemos la petición a la API
-	try:
-		respuesta = requests.get(URL_Dominio, headers = headers_vt, timeout=get_api_timeout())
-		respuesta.raise_for_status()
-		datos = respuesta.json()
-	except Exception as e:
-		logger.warning(f"[-] Error consultando VirusTotal para {dominio}: {e}")
-		return score
+	respuesta = requests.get(URL_Dominio, headers = headers_vt)
+	datos = respuesta.json()
+	logger.debug(f"\n\nRespuesta API VT: {datos}\n") # Guardamos en log la respuesta la API
 	# Buscamos el valor "Malicious" que es donde se almacena el score
 	if "malicious" in datos.get("data", {}).get("attributes", {}).get("last_analysis_stats", {}):
 		score = {"virustotal": datos["data"]["attributes"]["last_analysis_stats"]["malicious"]}
@@ -77,33 +73,24 @@ def _virustotal(dominio: str) -> dict:
 def _urlscan(dominio: str) -> dict:
 	logger.debug(f"[+] Se inicia la comprobacion del score en Urlscan del dominio {dominio}")
 	URL_Dominio = f"https://urlscan.io/api/v1/search/?q=page.domain:{dominio}"
-	api_key = get_urlscan_api_key() # Obtenemos la API Key que está almacenada en el archivo .env
+	api_key = os.getenv("API_URLSCAN") # Obtenemos la API Key que está almacenada en el archivo .env
 	headers = {"API-Key":api_key,"Content-Type":"application/json"} # Confuguramos las cabeceras segun domumentacion
 	score = {"urlscan": 0}
 	# Verificamos que tenemos la KEY, sino asignamos el score por defecto que es 0
 	if not api_key:
 		logger.warning("[-] No hay configurada una API KEY en Urlscan")
 		return score
-	try:
-		respuesta = requests.get(URL_Dominio, headers=headers, timeout=get_api_timeout()) # hacemos la consulta a la API. Puede devolver muchos resultados
-		respuesta.raise_for_status()
-		datos = respuesta.json()
-	except Exception as e:
-		logger.warning(f"[-] Error consultando Urlscan para {dominio}: {e}")
-		return score
+	respuesta = requests.get(URL_Dominio,headers=headers) # hacemos la consulta a la API. Puede devolver muchos resultados
+	datos = respuesta.json()
+	logger.debug(f"\n\nRespuesta API Urlscan: {datos}\n") # Guardamos en log la respuesta la API
 	resultados = datos.get("results", {})
 	# Verificamos si tenemos resultados y si los hay vamos a buscar el ID del resultado mas nuevo que es el primero de la lista
 	if resultados: 
 		id = resultados[0]["task"]["uuid"]
 		URL_ID = f"https://urlscan.io/api/v1/result/{id}"
 		# Hacemos una petición con el ID
-		try:
-			respuesta = requests.get(URL_ID, headers=headers, timeout=get_api_timeout())
-			respuesta.raise_for_status()
-			datos = respuesta.json()
-		except Exception as e:
-			logger.warning(f"[-] Error consultando Urlscan result para {dominio}: {e}")
-			return score
+		respuesta = requests.get(URL_ID,headers=headers)
+		datos = respuesta.json()
 		# Buscamos el valor "Malicious" que es donde se almacena el score 
 		if "malicious" in datos.get("stats", {}):
 			score = {"urlscan": datos["stats"]["malicious"]}

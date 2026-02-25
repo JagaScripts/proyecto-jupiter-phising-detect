@@ -144,10 +144,6 @@ ENV/
 env.bak/
 venv.bak/
 
-# Logs y bases de datos locales
-logs/
-*.db
-
 # Spyder project settings
 .spyderproject
 .spyproject

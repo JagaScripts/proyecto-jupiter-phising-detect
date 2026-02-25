@@ -1,9 +1,8 @@
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
-from config import get_database_url
 
 # Nombre de la base de datos
-DATABASE_URL = get_database_url()
+DATABASE_URL = "sqlite:///./dominios.db"
 
 engine = create_engine(
     DATABASE_URL,
