@@ -34,6 +34,9 @@ jobs:
           python-version: '3.11'
           cache: 'pip'
 
+      - name: Ensure pip cache directory exists
+        run: pip install --upgrade pip
+
       - name: Test Orchestrator Service
         if: steps.changes.outputs.orchestrator_service == 'true' || steps.changes.outputs.shared == 'true'
         working-directory: services/orchestrator-service
