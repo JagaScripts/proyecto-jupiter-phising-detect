@@ -10,3 +10,6 @@
 [submodule "services/pry-jupiter-phising-detect-lib-shared-kernel"]
 	path = services/pry-jupiter-phising-detect-lib-shared-kernel
 	url = https://github.com/JagaScripts/pry-jupiter-phising-detect-lib-shared-kernel.git
+[submodule "apps/frontend"]
+	path = apps/frontend
+	url = https://github.com/JagaScripts/pry-jupiter-phising-detect-app-frontend.git
