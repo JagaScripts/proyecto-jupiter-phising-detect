@@ -1,67 +1,73 @@
-# Arquitectura Técnica y Flujo de Trabajo - Proyecto Jupiter Phishing Detect
+# Arquitectura Técnica y Ecosistema de Servicios - Proyecto Jupiter Phishing Detect
 
-Este documento define los estándares arquitectónicos, la estrategia de desarrollo y el flujo de trabajo para el equipo del proyecto "Phishing Detect". 
+Este documento define la arquitectura técnica actual, la estrategia de empaquetado y el flujo de trabajo del ecosistema "Phishing Detect", desarrollado para el Máster en IA, Cloud Computing & DevOps.
 
 ## 1. Visión General: Arquitectura de Microservicios
 
-El sistema sigue una arquitectura de microservicios distribuidos, orquestados mediante **Docker Compose** para desarrollo local y despliegue.
+El sistema implementa una arquitectura de microservicios distribuidos, altamente desacoplados y orientados al dominio, orquestados mediante **Docker Compose** para los entornos de desarrollo local y despliegue.
 
-*   **Patrón:** API Gateway (Nginx) + Servicios Especializados.
-*   **Comunicación:** REST (HTTP) interna entre servicios.
-*   **Persistencia:** Servicios desacoplados, aunque inicialmente soportados por una infraestructura de datos compartida (PostgreSQL/Redis) facilitada mediante contenedores.
+*   **Modelo de Integración:** APIs RESTful síncronas y eventos asíncronos (soporte vía Redis).
+*   **Gestión del Ecosistema:** Orquestación centralizada a través de un repositorio "paraguas" (Umbrella Repository) apoyado en Git Submodules.
+*   **Persistencia:** Infraestructura de datos compartida gestionada vía contenedores (PostgreSQL y Redis).
 
-## 2. Estandarización de Microservicios ("The Golden Rule")
+## 2. Estrategia de Repositorios Estructurados (`.gitmodules`)
 
-Para garantizar la mantenibilidad y permitir que cualquier miembro del equipo trabaje en cualquier servicio sin fricción, **todos** los microservicios deben seguir estrictamente la **Arquitectura Hexagonal (Puertos y Adaptadores)** simplificada:
+El proyecto ha evolucionado de una estructura monolítica a un modelo modular gestionado por **Git Submodules**. Esta decisión arquitectónica se materializa en el archivo `.gitmodules` y separa físicamente el código fuente en repositorios independientes.
 
-```text
-nombre-servicio/
-├── app/
-│   ├── controllers/    # Rutas y Endpoints (API Layer)
-│   ├── services/       # Lógica de Negocio Pura (Core)
-│   ├── models/         # Definición de Datos / ORM (Data Layer)
-│   └── schemas/        # Contratos de Datos (Pydantic/DTOs)
-├── tests/              # Tests Unitarios e Integración específicos
-├── Dockerfile          # Definición de construcción optimizada
-└── requirements.txt    # Dependencias específicas
+### Justificación de la Arquitectura basada en Submódulos
+
+1.  **Desacoplamiento del Ciclo de Vida:** Cada microservicio tiene su propio control de versiones, pipeline de CI/CD (GitHub Actions) y ritmo de despliegue. Un fallo en la pipeline de un servicio no bloquea al resto del equipo.
+2.  **Aislamiento de Dominios:** Obliga a mantener fronteras claras de dominio (Bounded Contexts). Es imposible introducir acoplamiento oculto entre base de código de diferentes servicios sin hacerlo a través de interfaces explícitas.
+3.  **Gestión de Dependencias (El `Shared Kernel`):** Al extraer el código común en `lib-shared-kernel`, este puede ser versionado como una dependencia más, asegurando integridad en los contratos HTTP y modelos de datos.
+
+### Topología de Submódulos
+
+El ecosistema principal se compone de los siguientes submódulos:
+
+| Componente                   | Tipo          | Descripción                                                                                                          |
+| :--------------------------- | :------------ | :------------------------------------------------------------------------------------------------------------------- |
+| `services/srv-orchestrator`  | Microservicio | Actúa como API Gateway / Orquestador central, enrutando tráfico y componiendo respuestas para los frontends.         |
+| `services/srv-reputation`    | Microservicio | Encargado de analizar y determinar la reputación de las URLs y metadatos extraídos.                                  |
+| `services/srv-knowledge-rag` | Microservicio | Implementa el sistema RAG (Retrieval-Augmented Generation) integrando modelos de IA para análisis de phishing.       |
+| `services/lib-shared-kernel` | Librería      | Contratos, esquemas globales, utilidades de seguridad y formateo de respuestas reutilizables por todos los backends. |
+| `frontends/fnd-chatbot`      | Frontend      | Interfaz de usuario conversacional (Chatbot) orientada al usuario final.                                             |
+
+### Operativa Básica (Git Submodules)
+
+Para trabajar en el entorno, el desarrollador debe sincronizar los submódulos:
+
+```bash
+# Clonar por primera vez con submódulos
+git clone --recurse-submodules <url-del-repo-principal>
+
+# Actualizar submódulos si ya se clonó previamente
+git submodule update --init --recursive
 ```
 
-> **Regla:** No se permite lógica de negocio en los controladores. Los controladores solo orquestan y llaman a servicios.
+## 3. Arquitectura Interna de Microservicios ("The Golden Rule")
 
-## 3. Estrategia Monorepo: Código Compartido
+Para garantizar coherencia y mantenibilidad, cada repositorio de backend implementa una estructura inspirada en la **Arquitectura Hexagonal (Puertos y Adaptadores)**:
 
-Adoptamos un enfoque de **Monorepo** para agilizar el desarrollo colaborativo en esta fase académica.
+```text
+src/
+├── controllers/    # Rutas y Endpoints (Capa de Presentación / API)
+├── services/       # Lógica de Negocio Pura (Capa de Dominio / Core)
+├── models/         # Definición de Entidades ORM (Capa de Datos)
+└── schemas/        # Contratos DTO de entrada y salida (Pydantic)
+```
 
-### La Carpeta `services/shared`
-Todo código que deba ser reutilizado por más de un microservicio (ej: logs estandarizados, modelos base de respuesta, utilidades de seguridad) residirá en:
+> **Regla Inquebrantable:** Los `controllers` no contienen lógica de negocio. Se limitan a validar el acceso, delegar el trabajo al servicio correspondiente y estructurar la respuesta HTTP correspondientes.
 
-`services/shared/`
+## 4. Infraestructura Core y Backing Services
 
-*   **Manejo:** Esta carpeta se trata como una "librería interna".
-*   **Integración:** En tiempo de construcción (Docker build), esta carpeta se copia dentro de cada contenedor para asegurar que todos usen la misma versión de las utilidades sin necesidad de gestionar paquetes PyPI privados.
+El orquestador de infraestructura principal es el archivo `docker-compose.yml` del repositorio central, el cual define los *backing services* necesarios para el funcionamiento del ecosistema. En lugar de embeber las bases de datos en los repositorios de los servicios individuales, se centraliza su despliegue:
 
-## 4. Flujo de Trabajo Git (GitFlow Simplificado)
+*   **PostgreSQL 16 (`postgres-phishing`):** Base de datos relacional principal.
+*   **Redis 7 (`redis-phishing`):** Almacén clave-valor en memoria. Usado para caché veloz, sesión de usuarios o enrutamiento de pub/sub.
+*   **PgAdmin 4 (`pgadmin-phishing`):** Interfaz web de consola para administración local de la base de datos de manera visual (Puerto HTTP 5050).
 
-Nuestro árbol de trabajo se estructura para garantizar la estabilidad de la integración continua.
+## 5. Flujo de Integración Continua (CI/CD)
 
-### Ramas Principales
-*   **`main`**: Producción estable. Intocable directamente.
-*   **`develop`**: Rama de integración. Aquí convergen las features terminadas.
-
-### Ramas de Trabajo
-*   **`feature/nombre-funcionalidad`**: Para nuevo desarrollo. Nace de `develop` y se mezcla en `develop`.
-*   **`fix/descripcion-error`**: Para correcciones de errores.
-
-### Integración (Pull Requests & Gatekeeping)
-La integración de código se realiza **exclusivamente mediante Pull Requests (PR)**.
-*   **Bloqueo Automático:** Se han configurado **Git Workflows** que ejecutan tests automáticos al crear una PR.
-    *   🛑 Si los tests fallan, el botón de "Merge" se deshabilita.
-    *   ✅ Solo código verificado entra en `develop` o `main`.
-
-## 5. Infraestructura y DevOps
-
-*   **Docker Compose:** Es la fuente de verdad para levantar el entorno. Cada desarrollador puede levantar el sistema completo con `docker-compose up`.
-*   **Nginx Gateway:** Centraliza el acceso. No exponemos puertos de microservicios individuales innecesariamente; todo pasa por el Gateway.
-
----
-*Documento aprobado para referencia del equipo de desarrollo.*
+1.  **Desarrollo Focado:** Las *features* tecnológicas se implementan en ramas designadas (`feature/...`) dentro del propio repo del submódulo.
+2.  **Validación de Submódulos:** Cada PR creada dentro del submódulo activa su propia Pipeline de CI validando sus Unidades Funcionales (Tests y Linters).
+3.  **Integración en Umbrella:** Tras integrar satisfactoriamente una funcionalidad a un microservicio, se levanta una PR en este repositorio principal referenciando el avance del submodulo, documentando la cohesión del sistema global sin colisiones.
