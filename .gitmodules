@@ -1,15 +1,15 @@
-[submodule "services/pry-jupiter-phising-detect-srv-reputation"]
-	path = services/pry-jupiter-phising-detect-srv-reputation
+[submodule "services/srv-reputation"]
+	path = services/srv-reputation
 	url = https://github.com/JagaScripts/pry-jupiter-phising-detect-srv-reputation.git
-[submodule "services/pry-jupiter-phising-detect-srv-orchestrator"]
-	path = services/pry-jupiter-phising-detect-srv-orchestrator
+[submodule "services/srv-orchestrator"]
+	path = services/srv-orchestrator
 	url = https://github.com/JagaScripts/pry-jupiter-phising-detect-srv-orchestrator.git
-[submodule "services/pry-jupiter-phising-detect-srv-knowledge-rag"]
-	path = services/pry-jupiter-phising-detect-srv-knowledge-rag
+[submodule "services/srv-knowledge-rag"]
+	path = services/srv-knowledge-rag
 	url = https://github.com/JagaScripts/pry-jupiter-phising-detect-srv-knowledge-rag.git
-[submodule "services/pry-jupiter-phising-detect-lib-shared-kernel"]
-	path = services/pry-jupiter-phising-detect-lib-shared-kernel
+[submodule "services/lib-shared-kernel"]
+	path = services/lib-shared-kernel
 	url = https://github.com/JagaScripts/pry-jupiter-phising-detect-lib-shared-kernel.git
-[submodule "apps/frontend"]
-	path = apps/frontend
+[submodule "frontends/fnd-chatbot"]
+	path = frontends/fnd-chatbot
 	url = https://github.com/JagaScripts/pry-jupiter-phising-detect-app-frontend.git

@@ -24,9 +24,9 @@ jobs:
         id: changes
         with:
           filters: |
-            orchestrator_service: services/orchestrator-service/**
-            reputation_service: services/reputation-service/**
-            shared: services/shared/**
+            orchestrator_service: services/srv-orchestrator/**
+            reputation_service: services/srv-reputation/**
+            shared: services/lib-shared-kernel/**
 
       - name: Setup Python
         uses: actions/setup-python@v4
@@ -39,7 +39,7 @@ jobs:
 
       - name: Test Orchestrator Service
         if: steps.changes.outputs.orchestrator_service == 'true' || steps.changes.outputs.shared == 'true'
-        working-directory: services/orchestrator-service
+        working-directory: services/srv-orchestrator
         run: |
           pip install pytest -r requirements.txt
           # Hack: install shared lib locally for tests if not using full docker
