@@ -31,7 +31,7 @@ def list_domains(
     
     if query:
         q = f"%{query.strip().lower()}%"
-        sentencia = sentencia.where(Domain.domain_name.ilike({q}))
+        sentencia = sentencia.where(Domain.domain_name.ilike(q))
     
     rows = db.execute(sentencia).scalars().all()
     
@@ -117,7 +117,7 @@ def resolve_scope(
         dict[str, Any]: Scope resuelto con target_type, domain_ids y estadísticas básicas.
     """
 
-    target_type = (scope.get("target_type") or "domanins").strip().lower()
+    target_type = (scope.get("target_type") or "domains").strip().lower()
 
     if target_type == "all":
         return {"target_type": "all", "domain_ids": [], "missing_domains": []}
@@ -300,7 +300,7 @@ def set_rule_targets(
         dict[str, Any]: Resumen de targets asociados.
     """
     if resolved_scope is None:
-        draft = get_rule_draft(session_id)
+        draft = get_rule_draft(user_id, session_id)
         resolved_scope = draft.get("resolved_scope") or (draft.get("normalized_rule") or {}).get("scope")
 
         # fallback adicional: si guardaste normalized_rule.scope ya resuelta
@@ -350,7 +350,7 @@ def register_rule_schedule(
     """
 
     if schedule is None:
-        draft = get_rule_draft(session_id)
+        draft = get_rule_draft(user_id, session_id)
         normalized_rule = draft.get("normalized_rule") or {}
         schedule = normalized_rule.get("schedule") or draft.get("schedule")
 

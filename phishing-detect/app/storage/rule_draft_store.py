@@ -9,6 +9,7 @@ from dataclasses import dataclass, field
 class DraftEntry:
     """ Borrador temporal de una regla asociado a un usuario y una sesión. """
     user_id: str
+    session_id: str
     draft: dict[str, Any] = field(default_factory=dict)
     updated_at_utc: int = field(default_factory=lambda: int(time.time()))
 
@@ -34,11 +35,12 @@ def _gc() -> None:
         _RULE_DRAFTS.pop(sid, None)
 
 
-def get_rule_draft(session_id: str) -> dict[str, Any]:
+def get_rule_draft(user_id: str, session_id: str ) -> dict[str, Any]:
     """
     Recupera el borrador de regla asociado a una sesión.
 
     Args:
+        user_id (Str): Identificador de usuario
         session_id (str): Identificador de la sesión.
 
     Returns:
@@ -46,10 +48,16 @@ def get_rule_draft(session_id: str) -> dict[str, Any]:
     """
     _gc()
     entry = _RULE_DRAFTS.get(session_id)
-    return entry.draft.copy() if entry else {}
+    if entry is None:
+        return {"session_id": session_id, "user_id": user_id, "draft": {}}
+
+    if entry.user_id != user_id:
+        raise ValueError("session_id pertenece a otro user_id")
+
+    return {"session_id": session_id, "user_id": user_id, "draft": entry.draft.copy()}
 
 
-def upsert_rule_draft(session_id: str, user_id: str, patch: dict[str, Any]) -> dict[str, Any]:
+def upsert_rule_draft(user_id: str, session_id: str, patch: dict[str, Any]) -> dict[str, Any]:
     """
     Crea o actualiza el borrador de una regla para una sesión.
 
@@ -64,18 +72,25 @@ def upsert_rule_draft(session_id: str, user_id: str, patch: dict[str, Any]) -> d
     _gc()
     entry = _RULE_DRAFTS.get(session_id)
     if entry is None:
-        entry = DraftEntry(user_id=user_id, draft={})
+        entry = DraftEntry(user_id=user_id, session_id=session_id, draft={})
         _RULE_DRAFTS[session_id] = entry
 
     # Seguridad básica: evita que otro user reescriba sesión
     if entry.user_id != user_id:
         raise ValueError("session_id pertenece a otro user_id")
-
+    
     entry.draft.update(patch)
     entry.updated_at_utc = _now()
     return entry.draft.copy()
-
-
-def clear_rule_draft(session_id: str) -> None:
+    
+def clear_rule_draft(user_id: str, session_id: str) -> None:
     """Elimina el borrador de regla asociado a una sesión."""
+    entry = _RULE_DRAFTS.get(session_id)
+    if entry is None:
+        return
+
+    if entry.user_id != user_id:
+        raise ValueError("session_id pertenece a otro user_id")
+
     _RULE_DRAFTS.pop(session_id, None)
+    

@@ -22,7 +22,7 @@ class RiskCondition(BaseModel):
 class ExpiryCondition(BaseModel):
     """ Condición basada en la proximidad a la fecha de expiración del dominio. """
     kind: Literal["expiry"] = "expiry"
-    days_before: int = Field(..., ge=1, le=3650)
+    days_before: int = Field(..., ge=1, le=365)
     only_if_auto_renew_off: bool = False
 
 
@@ -58,7 +58,7 @@ class AlertRuleDSL(BaseModel):
     """ Definición completa de una regla de alerta en formato DSL. """
     
     dsl_version: str = Field(default="v1.0")
-    name: str = Field(..., min_length=3, max_length=80)
+    rule_name: str = Field(..., min_length=3, max_length=80)
     description: str | None = Field(default=None, max_length=240)
 
     rule_type: Literal["risk", "expiry"]

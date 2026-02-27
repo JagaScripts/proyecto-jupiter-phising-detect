@@ -37,7 +37,10 @@ env.bak/
 venv.bak/
 
 # mkdocs documentation
-/docs
+docs/
 
 # bases de datos
 *.db
+
+# Studio Code
+.vscode/
