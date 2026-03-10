@@ -1,5 +1,5 @@
-[submodule "services/srv-reputation"]
-	path = services/srv-reputation
+[submodule "services/CU-03"]
+	path = services/CU-03
 	url = https://github.com/JagaScripts/pry-jupiter-phising-detect-srv-reputation.git
 [submodule "services/srv-orchestrator"]
 	path = services/srv-orchestrator
