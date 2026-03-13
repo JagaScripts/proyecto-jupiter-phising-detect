@@ -32,6 +32,54 @@ services:
       timeout: 3s
       retries: 20
 
+  # Orquestador Principal
+  orchestrator:
+    build:
+      context: ./services/srv-orchestrator
+      dockerfile: Dockerfile
+    container_name: srv-orchestrator
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    env_file: .env
+    depends_on:
+      redis:
+        condition: service_healthy
+
+  # Servicio de Conocimiento (RAG)
+  knowledge-rag:
+    build:
+      context: ./services/srv-knowledge-rag
+      dockerfile: Dockerfile
+    container_name: srv-knowledge-rag
+    restart: unless-stopped
+    ports:
+      - "8003:8003"
+    env_file: .env
+
+  # Servicio de Reputación (CU-03)
+  reputation:
+    build:
+      context: ./services/CU-03
+      dockerfile: Dockerfile
+    container_name: srv-reputation
+    restart: unless-stopped
+    ports:
+      - "8002:8002"
+    env_file: .env
+
+  # Interfaz Web (Frontend)
+  chatbot-ui:
+    build:
+      context: ./frontends/fnd-chatbot
+      dockerfile: Dockerfile
+    container_name: fnd-chatbot
+    restart: unless-stopped
+    ports:
+      - "8080:80"
+    depends_on:
+      - orchestrator
+
   # interfaz web para ver la BD
   pgadmin:
     image: dpage/pgadmin4:latest

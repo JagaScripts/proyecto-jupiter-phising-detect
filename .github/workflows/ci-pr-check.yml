@@ -3,48 +3,73 @@ name: "PR Gatekeeper"
 on:
   pull_request:
     branches: ["main", "develop"]
-    paths: ["services/**", "shared/**", ".github/**"]
+    paths:
+      - "services/**"
+      - "frontends/**"
+      - ".github/workflows/**"
 
 jobs:
-  test:
-    name: "Test affected services"
+  changes:
+    name: Detect Changed Services
     runs-on: ubuntu-latest
-    timeout-minutes: 10
-    permissions:
-      contents: read
-    
+    outputs:
+      orchestrator: ${{ steps.filter.outputs.orchestrator }}
+      knowledge: ${{ steps.filter.outputs.knowledge }}
+      reputation: ${{ steps.filter.outputs.reputation }}
+      shared: ${{ steps.filter.outputs.shared }}
+      frontend: ${{ steps.filter.outputs.frontend }}
     steps:
-      - name: Checkout Code
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0  # Necessary for change detection
-
-      - name: Filter Changed Paths
-        uses: dorny/paths-filter@v2
-        id: changes
+      - uses: actions/checkout@v4
+      - uses: dorny/paths-filter@v3
+        id: filter
         with:
           filters: |
-            orchestrator_service: services/srv-orchestrator/**
-            reputation_service: services/srv-reputation/**
-            shared: services/lib-shared-kernel/**
+            orchestrator: 'services/srv-orchestrator/**'
+            knowledge: 'services/srv-knowledge-rag/**'
+            reputation: 'services/CU-03/**'
+            shared: 'services/lib-shared-kernel/**'
+            frontend: 'frontends/fnd-chatbot/**'
 
-      - name: Setup Python
-        uses: actions/setup-python@v4
-        with:
-          python-version: '3.11'
-          cache: 'pip'
+  orchestrator-ci:
+    needs: changes
+    if: needs.changes.outputs.orchestrator == 'true' || needs.changes.outputs.shared == 'true'
+    uses: ./.github/workflows/reusable-python-ci.yml
+    with:
+      service_name: srv-orchestrator
+      working_directory: services/srv-orchestrator
 
-      - name: Ensure pip cache directory exists
-        run: pip install --upgrade pip
+  knowledge-ci:
+    needs: changes
+    if: needs.changes.outputs.knowledge == 'true' || needs.changes.outputs.shared == 'true'
+    uses: ./.github/workflows/reusable-python-ci.yml
+    with:
+      service_name: srv-knowledge-rag
+      working_directory: services/srv-knowledge-rag
 
-      - name: Test Orchestrator Service
-        if: steps.changes.outputs.orchestrator_service == 'true' || steps.changes.outputs.shared == 'true'
-        working-directory: services/srv-orchestrator
+  reputation-ci:
+    needs: changes
+    if: needs.changes.outputs.reputation == 'true' || needs.changes.outputs.shared == 'true'
+    uses: ./.github/workflows/reusable-python-ci.yml
+    with:
+      service_name: srv-reputation
+      working_directory: services/CU-03
+
+  shared-ci:
+    needs: changes
+    if: needs.changes.outputs.shared == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Lint Shared Kernel
         run: |
-          pip install pytest -r requirements.txt
-          # Hack: install shared lib locally for tests if not using full docker
-          # Better approach: run tests inside docker or use PYTHONPATH
-          export PYTHONPATH=$PYTHONPATH:../../
-          pytest tests/
+          pip install ruff
+          ruff check services/lib-shared-kernel
 
-      # Add more steps for other services...
+  frontend-ci:
+    needs: changes
+    if: needs.changes.outputs.frontend == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build Frontend Docker (Dry Run)
+        run: docker build -t fnd-chatbot:test frontends/fnd-chatbot
