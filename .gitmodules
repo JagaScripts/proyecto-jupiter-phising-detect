@@ -1,7 +1,3 @@
-[submodule "services/srv-reputation"]
-	path = services/srv-reputation
-	url = https://github.com/JagaScripts/pry-jupiter-phising-detect-srv-reputation.git
-	branch = main
 [submodule "services/srv-orchestrator"]
 	path = services/srv-orchestrator
 	url = https://github.com/JagaScripts/pry-jupiter-phising-detect-srv-orchestrator.git
@@ -17,4 +13,8 @@
 [submodule "frontends/fnd-chatbot"]
 	path = frontends/fnd-chatbot
 	url = https://github.com/JagaScripts/pry-jupiter-phising-detect-app-frontend.git
+	branch = main
+[submodule "services/CU-03"]
+	path = services/CU-03
+	url = https://github.com/JagaScripts/pry-jupiter-phising-detect-srv-reputation.git
 	branch = main
