@@ -1,15 +1,20 @@
 [submodule "services/srv-reputation"]
 	path = services/srv-reputation
 	url = https://github.com/JagaScripts/pry-jupiter-phising-detect-srv-reputation.git
+	branch = main
 [submodule "services/srv-orchestrator"]
 	path = services/srv-orchestrator
 	url = https://github.com/JagaScripts/pry-jupiter-phising-detect-srv-orchestrator.git
+	branch = main
 [submodule "services/srv-knowledge-rag"]
 	path = services/srv-knowledge-rag
 	url = https://github.com/JagaScripts/pry-jupiter-phising-detect-srv-knowledge-rag.git
+	branch = main
 [submodule "services/lib-shared-kernel"]
 	path = services/lib-shared-kernel
 	url = https://github.com/JagaScripts/pry-jupiter-phising-detect-lib-shared-kernel.git
+	branch = main
 [submodule "frontends/fnd-chatbot"]
 	path = frontends/fnd-chatbot
 	url = https://github.com/JagaScripts/pry-jupiter-phising-detect-app-frontend.git
+	branch = main
